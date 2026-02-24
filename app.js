@@ -1,0 +1,339 @@
+const API_URL = "http://127.0.0.1:8000/api";
+let globalSimData = null;
+let currentActivePage = "Home";
+
+document.addEventListener("DOMContentLoaded", async () => {
+    fetch3Dmol("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5", "home-3dmol");
+
+    document.getElementById('theme-toggle').addEventListener('click', (e) => {
+        const html = document.documentElement;
+        if(html.getAttribute('data-theme') === 'light') { html.setAttribute('data-theme', 'dark'); e.target.innerText='☀️'; }
+        else { html.setAttribute('data-theme', 'light'); e.target.innerText='🌙'; }
+        if(globalSimData) renderSpecificView(currentActivePage);
+    });
+
+    // Run the initial simulation right away
+    await runQuantumSimulation();
+});
+
+function navigate(pageId) {
+    currentActivePage = pageId;
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+
+    const caller = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.innerText.includes(pageId) || b.getAttribute('onclick').includes(pageId));
+    if(caller) caller.classList.add('active');
+
+    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.module-view').forEach(m => m.style.display = 'none');
+
+    const sidebar = document.getElementById('oracle-sidebar');
+    const appGrid = document.getElementById('main-app-grid');
+
+    // Hide sidebar for exact pages as per your Streamlit photos
+    if (['Similarity Search', 'Lipinski Filter', 'Q-Visualizer'].includes(pageId)) {
+        if(sidebar) sidebar.style.display = 'none';
+        if(appGrid) appGrid.style.gridTemplateColumns = '1fr';
+    } else {
+        if(sidebar) sidebar.style.display = 'block';
+        if(appGrid) appGrid.style.gridTemplateColumns = '1fr 3.5fr';
+    }
+
+    if(pageId === 'Home') {
+        document.getElementById('Home').classList.add('active');
+        const wrapper = document.getElementById('App-Wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+    } else {
+        const wrapper = document.getElementById('App-Wrapper');
+        if (wrapper) {
+            wrapper.style.display = 'block';
+            wrapper.classList.add('active');
+        }
+
+        const titleEl = document.getElementById('current-module-title');
+        if (titleEl) titleEl.innerText = pageId;
+
+        const targetDiv = document.getElementById(pageId.replace(/\s+/g, '-'));
+        if(targetDiv) targetDiv.style.display = 'block';
+        setTimeout(() => { renderSpecificView(pageId); }, 150);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function runQuantumSimulation() {
+    const btn = document.getElementById('run-btn');
+    if(btn) btn.innerText = "⚛️ Calculating...";
+
+    const statusHdr = document.getElementById('status-hdr');
+    if(statusHdr) statusHdr.innerHTML = `<span style="color:var(--accent2-color);">Running Qiskit Math...</span>`;
+
+    const config = {
+        t_qed: parseFloat(document.getElementById('t_qed').value),
+        min_mw: parseFloat(document.getElementById('min_mw').value), max_mw: parseFloat(document.getElementById('max_mw').value),
+        min_logp: parseFloat(document.getElementById('min_logp').value), max_logp: parseFloat(document.getElementById('max_logp').value),
+        min_tpsa: parseFloat(document.getElementById('min_tpsa').value), max_tpsa: parseFloat(document.getElementById('max_tpsa').value),
+        max_hbd: parseInt(document.getElementById('max_hbd').value), max_hba: parseInt(document.getElementById('max_hba').value),
+        max_rotbonds: parseInt(document.getElementById('max_rotbonds').value), max_rings: parseInt(document.getElementById('max_rings').value),
+        grover_steps: parseInt(document.getElementById('grover_steps').value), noise_rate: parseFloat(document.getElementById('noise_rate').value)
+    };
+
+    try {
+        const res = await fetch(`${API_URL}/simulate`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) });
+        if(!res.ok) throw new Error("Backend Crash or Data Error");
+        globalSimData = await res.json();
+
+        // Exact header match from Photo 3
+        const hdrStr = `SEARCH SPACE: <span style="color:var(--text-color); font-weight:bold;">${globalSimData.N.toLocaleString()}</span> &nbsp;|&nbsp; ORACLE TARGETS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.targets_count.toLocaleString()}</span> &nbsp;|&nbsp; ALLOCATED QUBITS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.num_qubits}</span> (${globalSimData.dim.toLocaleString()} SUBSTATES)`;
+        if(statusHdr) statusHdr.innerHTML = hdrStr;
+
+        // Bulletproof DOM updates (prevents JS crashes if a page is missing)
+        const statN = document.getElementById('stat-N'); if(statN) statN.innerText = globalSimData.N.toLocaleString();
+        const statDim = document.getElementById('stat-dim'); if(statDim) statDim.innerText = globalSimData.dim.toLocaleString();
+        const statOpt = document.getElementById('stat-opt'); if(statOpt) statOpt.innerText = globalSimData.opt_steps;
+        const hTarget = document.getElementById('home-target-count'); if(hTarget) hTarget.innerText = globalSimData.targets_count.toLocaleString();
+        const aTarget = document.getElementById('app-target-count'); if(aTarget) aTarget.innerText = globalSimData.targets_count.toLocaleString();
+
+        renderSpecificView(currentActivePage);
+    } catch(err) {
+        console.error("System Error Details:", err);
+        if(statusHdr) statusHdr.innerHTML = `<span style="color:#ef4444; font-weight:bold;">BACKEND ERROR - SERVER UNREACHABLE (CHECK CONSOLE)</span>`;
+    }
+
+    if(btn) btn.innerText = "Apply & Run Simulation";
+}
+
+function getLayoutProps() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return { fontCol: isLight ? '#0f172a' : '#ffffff', bg: 'rgba(0,0,0,0)' };
+}
+
+function renderSpecificView(pageId) {
+    if(!globalSimData || !globalSimData.display_df) return;
+    if(pageId === 'Hilbert Space') renderHilbertSpace();
+    if(pageId === 'Top Candidate') renderTopCandidate();
+    if(pageId === 'Grover Analytics') renderAnalytics();
+    if(pageId === 'Lipinski Filter') renderLipinskiFilter();
+}
+
+function renderHilbertSpace() {
+    if(document.getElementById('Hilbert-Space').style.display === 'none') return;
+    const data = globalSimData.display_df;
+    const l = getLayoutProps();
+
+    // Create an array of probability numbers to drive the continuous color scale
+    const probValues = data.map(d => d.Probability);
+    const sizes = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 14 : 5);
+
+    Plotly.newPlot('hilbert-plot', [{
+        x: data.map(d=>d.MW), y: data.map(d=>d.LogP), z: probValues, text: data.map(d=>d.Name),
+        mode: 'markers', type: 'scatter3d',
+        marker: {
+            size: sizes,
+            color: probValues, // <--- Using actual probabilities for color
+            colorscale: [      // <--- Custom Quantum Theme Color Scale
+                [0, '#1e293b'],       // Base state: Slate
+                [0.1, '#3b82f6'],     // Low probability: Blue
+                [0.5, '#a855f7'],     // Amplifying: Purple
+                [1.0, '#f59e0b']      // Top Hit: Gold/Orange
+            ],
+            showscale: true,
+            colorbar: {
+                title: '|Ψ|² Prob',
+                thickness: 15,
+                tickfont: {color: l.fontCol},
+                titlefont: {color: l.fontCol, size: 12}
+            },
+            opacity: 0.9,
+            symbol: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 'diamond' : 'circle'),
+            line: { // Adds a white outline specifically to the top hit so it stands out
+                color: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? '#ffffff' : 'transparent'),
+                width: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 2 : 0)
+            }
+        }
+    }], {
+        paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol },
+        scene: { xaxis: {title: 'Mass (Da)'}, yaxis: {title: 'LogP'}, zaxis: {title: '|Ψ|² Probability'} }, margin: {l:0,r:0,t:0,b:0}
+    });
+
+    // Top 20 Table
+    let tableHTML = `<table class="custom-table"><tr><th>Name</th><th>Classification</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>HBD</th><th>HBA</th><th>Probability</th></tr>`;
+    data.slice(0, 20).forEach(d => {
+        tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.QED.toFixed(3)}</td><td>${d.TPSA.toFixed(1)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`;
+    });
+    tableHTML += `</table>`;
+    const tbContainer = document.getElementById('hilbert-table-container');
+    if (tbContainer) tbContainer.innerHTML = tableHTML;
+}
+
+function renderTopCandidate() {
+    if(document.getElementById('Top-Candidate').style.display === 'none') return;
+    const hit = globalSimData.top_hit;
+
+    document.getElementById('tc-name').innerText = hit.Name;
+    document.getElementById('tc-prob').innerText = (hit.Probability * 100).toFixed(4) + "%";
+    document.getElementById('tc-mw').innerText = hit.MW.toFixed(2) + " Da";
+    document.getElementById('tc-logp').innerText = hit.LogP.toFixed(2);
+    document.getElementById('tc-qed').innerText = hit.QED.toFixed(3);
+    document.getElementById('tc-tpsa').innerText = hit.TPSA.toFixed(1) + " Å²";
+
+    // Lipinski Badges
+    let v = 0;
+    let badgeHtml = '';
+    const checks = [
+        {name: "MW ≤ 500 Da", pass: hit.MW <= 500},
+        {name: "LogP ≤ 5", pass: hit.LogP <= 5},
+        {name: "HBD ≤ 5", pass: hit.HBD <= 5},
+        {name: "HBA ≤ 10", pass: hit.HBA <= 10}
+    ];
+    checks.forEach(c => {
+        if(!c.pass) v++;
+        badgeHtml += `<div class="${c.pass ? 'badge-pass' : 'badge-fail'}" style="margin-bottom: 8px;">${c.pass ? 'PASS' : 'FAIL'} &mdash; ${c.name}</div>`;
+    });
+    document.getElementById('tc-lipinski-badges').innerHTML = badgeHtml;
+    document.getElementById('tc-verdict').innerHTML = `<div class="card-header" style="font-size: 0.75rem; border:none; margin-bottom:5px;">SYSTEM VERDICT:</div><div class="${v<=1?'badge-pass':'badge-fail'}">${v<=1?'COMPLIANT':`NON-COMPLIANT (${v})`}</div>`;
+
+    const l = getLayoutProps();
+    Plotly.newPlot('radar-plot', [{
+        type: 'scatterpolar', r: [hit.QED, Math.min(hit.MW/500,1), Math.min((hit.LogP+5)/15,1), Math.min(hit.TPSA/140,1), Math.min(hit.HBD/5,1), Math.min(hit.HBA/10,1)],
+        theta: ['QED','MW','LogP','TPSA','HBD','HBA'], fill: 'toself', line: {color: '#3b82f6'}
+    }], { polar: {radialaxis:{visible:false}, bgcolor: l.bg}, paper_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:30,r:30,t:10,b:10} });
+
+    if(hit.SMILES && hit.SMILES !== "C") fetch3Dmol(hit.SMILES, 'tc-3dmol');
+}
+
+function renderLipinskiFilter() {
+    if(document.getElementById('Lipinski-Filter').style.display === 'none') return;
+    const l = getLayoutProps();
+    let passCount = 0; let failCount = 0;
+    const realDrugs = globalSimData.display_df.filter(d => d.Is_Real).slice(0, 100);
+
+    let tableHTML = `<table class="custom-table"><tr><th>Name</th><th>MW</th><th>LogP</th><th>HBD</th><th>HBA</th><th>Violations</th><th>Status</th></tr>`;
+    realDrugs.forEach(d => {
+        let v = 0; if(d.MW > 500) v++; if(d.LogP > 5) v++; if(d.HBD > 5) v++; if(d.HBA > 10) v++;
+        const status = v <= 1 ? "PASS" : "FAIL";
+        if(status === "PASS") passCount++; else failCount++;
+        tableHTML += `<tr><td>${d.Name}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${v}</td><td><span class="${status==='PASS'?'badge-pass':'badge-fail'}">${status}</span></td></tr>`;
+    });
+    tableHTML += `</table>`;
+    document.getElementById('lipinski-table-container').innerHTML = tableHTML;
+
+    Plotly.newPlot('lipinski-pie', [{
+        values: [passCount, failCount], labels: ['Compliant', 'Non-Compliant'], type: 'pie', hole: 0.6, marker: { colors: ['#3b82f6', '#f59e0b'] }
+    }], { title: 'Dataset Compliance', paper_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l:20, r:20, t:40, b:20} });
+}
+
+function renderAnalytics() {
+    if(document.getElementById('Grover-Analytics').style.display === 'none') return;
+    const l = getLayoutProps();
+
+    const trace = globalSimData.psi_history.map(stepProbs => Math.max(...stepProbs));
+    const xSteps = Array.from({length: trace.length}, (_, i) => i);
+
+    Plotly.newPlot('grover-line', [{ x: xSteps, y: trace, type: 'scatter', mode: 'lines+markers', line:{color:'#3b82f6', width: 3}, marker:{size:8} }], {
+        title: {text: 'Amplitude Amplification Trace (Qiskit Base)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, xaxis:{title:'Grover Iteration', tickmode:'linear'}, yaxis:{title:'|Ψ|² Probability'}, margin:{l:50,r:20,t:40,b:40}
+    });
+
+    const top50 = globalSimData.display_df.slice(0,50);
+    Plotly.newPlot('grover-bar', [{ x: top50.map((_,i)=>i), y: top50.map(d=>d.Probability), type: 'bar', marker:{color: top50.map(d=>d.Classification==='Suppressed Noise'? '#475569':'#3b82f6')} }], {
+        title: {text:'Top 50 Qubit State Probabilities', font: {size: 14}}, xaxis:{title:'State Rank'}, yaxis:{title:'|Ψ|² Probability'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:50,r:20,t:40,b:40}
+    });
+
+    document.getElementById('log-init').innerHTML = `Allocated ${globalSimData.num_qubits} Qubits dynamically.<br>Hilbert space dimension 2^${globalSimData.num_qubits} = ${globalSimData.dim.toLocaleString()}.<br>Initial state probability uniformly distributed at ${(1/globalSimData.dim).toFixed(6)}.`;
+    document.getElementById('log-oracle').innerHTML = `Phase-flip successfully applied.<br>Identified ${globalSimData.targets_count.toLocaleString()} target substates matching active constraints.`;
+
+    const noiseRate = document.getElementById('noise_rate').value;
+    document.getElementById('log-noise').innerHTML = `Approximated noise depolarizing rate: ${noiseRate}.<br>Coherence preserved: ${((1-noiseRate)*100).toFixed(0)}%`;
+    document.getElementById('log-speedup').innerHTML = `Classical Search: O(N) = ${globalSimData.N.toLocaleString()} iterations<br>Quantum Search: O(√N) = ${Math.floor(Math.sqrt(globalSimData.dim)).toLocaleString()} iterations<br>System limit bounded to ${globalSimData.opt_steps} mathematical steps.`;
+    document.getElementById('log-collapse').innerHTML = `Superposition collapsed to highest probability state:<br><b>${globalSimData.top_hit.Name}</b> at ${(globalSimData.top_hit.Probability*100).toFixed(4)}% amplitude.`;
+}
+
+async function runSimilarity() {
+    const smi = document.getElementById('sim-input').value;
+    if(!smi) return;
+    const res = await fetch(`${API_URL}/similarity`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({smiles: smi}) });
+    const data = await res.json();
+    const l = getLayoutProps();
+    Plotly.newPlot('sim-plot', [{ x: data.matches.map(d=>d.Name), y: data.matches.map(d=>d.Tanimoto), type: 'bar', marker:{color:'#3b82f6'} }], {
+        paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:40,r:20,t:20,b:40}
+    });
+    document.getElementById('sim-top-match').innerText = `Top Match: ${data.matches[0].Name} (${data.matches[0].Tanimoto.toFixed(3)})`;
+    fetch3Dmol(data.matches[0].SMILES, 'sim-3dmol');
+}
+
+async function runDesignerDiagnostics() {
+    const smi = document.getElementById('designer-smi').value;
+    if(!smi) return;
+    try {
+        const res = await fetch(`${API_URL}/molecule-props`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({smiles: smi}) });
+        const data = await res.json();
+        const b = { qed: parseFloat(document.getElementById('t_qed').value), min_mw: parseFloat(document.getElementById('min_mw').value), max_mw: parseFloat(document.getElementById('max_mw').value), min_log: parseFloat(document.getElementById('min_logp').value), max_log: parseFloat(document.getElementById('max_logp').value), min_tpsa: parseFloat(document.getElementById('min_tpsa').value), max_tpsa: parseFloat(document.getElementById('max_tpsa').value), hbd: parseInt(document.getElementById('max_hbd').value), hba: parseInt(document.getElementById('max_hba').value), rot: parseInt(document.getElementById('max_rotbonds').value), ring: parseInt(document.getElementById('max_rings').value) };
+        const inOracle = (data.props.QED >= b.qed && data.props.MW >= b.min_mw && data.props.MW <= b.max_mw && data.props.LogP >= b.min_log && data.props.LogP <= b.max_log && data.props.TPSA >= b.min_tpsa && data.props.TPSA <= b.max_tpsa && data.props.HBD <= b.hbd && data.props.HBA <= b.hba && data.props.RotBonds <= b.rot && data.props.Rings <= b.ring);
+
+        let html = `
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'><div class='data-lbl'>Mol Weight</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.MW.toFixed(2)} Da</div></div>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'><div class='data-lbl'>LogP</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.LogP.toFixed(2)}</div></div>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'><div class='data-lbl'>TPSA</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.TPSA.toFixed(1)} Å²</div></div>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'><div class='data-lbl'>QED Score</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.QED.toFixed(3)}</div></div>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 0.5rem;'><div class='data-lbl'>HB Donors</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.HBD}</div></div>
+            <div style='display: flex; justify-content: space-between; margin-bottom: 1.5rem;'><div class='data-lbl'>HB Acceptors</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.HBA}</div></div>
+            <div class='card-header' style='font-size: 0.75rem; border:none; margin-bottom: 5px;'>LIPINSKI RULE OF 5</div>
+        `;
+
+        for (const [rule, pass] of Object.entries(data.checks)) { html += `<div class="${pass ? 'badge-pass' : 'badge-fail'}" style="margin-bottom: 5px;">${pass?'PASS':'FAIL'} - ${rule}</div>`; }
+        html += `<div class='card-header' style='font-size: 0.75rem; border:none; margin-top: 1.5rem; margin-bottom: 5px;'>ORACLE ALIGNMENT</div>`;
+        html += `<div class="${inOracle ? 'badge-pass' : 'badge-fail'}">${inOracle?'✓ IN ACTIVE BOUNDS':'✗ OUTSIDE ACTIVE BOUNDS'}</div>`;
+
+        document.getElementById('designer-results').innerHTML = html;
+        fetch3Dmol(smi, 'designer-3dmol');
+    } catch { document.getElementById('designer-results').innerHTML = `<div class="badge-fail">Invalid SMILES Structure</div>`; }
+}
+
+async function runQVisualizer() {
+    const statBox = document.getElementById('qv-status-box');
+    const stat = document.getElementById('qv-status');
+    statBox.style.display = 'block';
+
+    const N = 64; let amps = Array(N).fill(1/Math.sqrt(N));
+    const targetIdx = 32;
+    const l = getLayoutProps();
+    const xLabels = Array.from({length: N}, (_, i) => i === targetIdx ? "ASPIRIN" : `SYN-${i.toString().padStart(3, '0')}`);
+
+    function plotIt(ydata, title, yTitle="Probability Amplitude", yRange=[-0.4, 0.8]) {
+        Plotly.newPlot('qv-plot', [{ x: xLabels, y: ydata, type: 'bar', marker:{color: ydata.map((_,i)=> i===targetIdx ? '#f59e0b' : '#3b82f6')} }], {
+            title: title, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, yaxis:{title: yTitle, range:yRange}, xaxis: {showticklabels: false}, margin:{l:50,r:20,t:40,b:40}
+        });
+    }
+
+    stat.innerHTML = "<b>PHASE 1: UNIFORM SUPERPOSITION</b><br>The Statevector is initialized. Hadamard gates apply a uniform transformation across the basis states. Every molecule exists simultaneously with an identical initial amplitude.";
+    plotIt(amps, "Step 1: Uniform Superposition", "Probability Amplitude", [-0.4, 0.4]);
+    await new Promise(r => setTimeout(r, 2000));
+
+    const steps = Math.floor((Math.PI / 4) * Math.sqrt(N));
+    for(let step=0; step<steps; step++) {
+        stat.innerHTML = `<b>ITERATION ${step+1}: ORACLE PHASE FLIP</b><br>The unitary Diagonal Oracle matrix maps the constraints and applies a negative phase shift exclusively to the target index (Aspirin).`;
+        amps[targetIdx] *= -1;
+        plotIt(amps, `Iteration ${step+1}: Oracle Phase Flip`, "Probability Amplitude", [-0.5, 1.0]);
+        await new Promise(r => setTimeout(r, 1500));
+
+        stat.innerHTML = `<b>ITERATION ${step+1}: GROVER DIFFUSION</b><br>The Diffuser applies inversion-about-the-mean. Notice how the target amplitude surges while the noise amplitudes are suppressed via destructive interference.`;
+        const mean = amps.reduce((a,b)=>a+b,0)/N;
+        amps = amps.map(a => 2*mean - a);
+        plotIt(amps, `Iteration ${step+1}: Amplitude Amplification`, "Probability Amplitude", [-0.5, 1.0]);
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    stat.innerHTML = "<b>PHASE 3: STATE MEASUREMENT (WAVE COLLAPSE)</b><br>Probability extraction completes. The vector collapses into a deterministic classical output. Aspirin is isolated perfectly.";
+    plotIt(amps.map(a=>a*a), "Final State: Wave Collapse Measurement", "|Ψ|² Probability", [0, 1.05]);
+}
+
+async function fetch3Dmol(smiles, elementId) {
+    try {
+        const res = await fetch(`${API_URL}/3dmol?smiles=${encodeURIComponent(smiles)}`);
+        const data = await res.json();
+        const container = document.getElementById(elementId);
+        container.innerHTML = "";
+        let viewer = $3Dmol.createViewer(elementId, {backgroundColor: 'rgba(0,0,0,0)'});
+        viewer.addModel(data.mol_block, "sdf");
+        viewer.setStyle({}, {stick:{colorscheme:'blueWhiteCarbon', radius:0.2}});
+        viewer.zoomTo(); viewer.zoom(1.8); viewer.spin(true); viewer.render();
+    } catch(err) { console.error("3Dmol Error"); }
+}

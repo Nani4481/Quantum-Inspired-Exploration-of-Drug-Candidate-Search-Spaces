@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-DISCOVER | Enterprise Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+</head>
+<body>
+    <div class="nav-container">
+        <div class="nav-brand">⚛️ Q-DISCOVER</div>
+        <button class="nav-btn active" onclick="navigate('Home')">🏠 Home</button>
+        <button class="nav-btn" onclick="navigate('Hilbert Space')">🌌 Hilbert</button>
+        <button class="nav-btn" onclick="navigate('Top Candidate')">🎯 Top Hit</button>
+        <button class="nav-btn" onclick="navigate('Lipinski Filter')">🛡️ Lipinski</button>
+        <button class="nav-btn" onclick="navigate('Similarity Search')">🧬 Sim Search</button>
+        <button class="nav-btn" onclick="navigate('Grover Analytics')">📈 Analytics</button>
+        <button class="nav-btn" onclick="navigate('Molecule Designer')">✍️ Designer</button>
+        <button class="nav-btn" onclick="navigate('Q-Visualizer')">👁️ Visualizer</button>
+        <button id="theme-toggle" class="nav-btn" style="margin-left: auto;">☀️</button>
+    </div>
+
+    <div class="block-container">
+        <div id="Home" class="page-section active">
+            <div style="display: flex; gap: 3rem; align-items: center; margin-bottom: 4rem;">
+                <div style="flex: 1.1;">
+                    <div class="hero-title">Discover Ligands with <span>Quantum Velocity.</span></div>
+                    <p class="hero-subtitle">Step into the next generation of chemoinformatics. Leverage Qiskit Statevectors to locate optimal molecular candidates with theoretical square-root acceleration.</p>
+                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                        <button class="btn-primary" onclick="navigate('Hilbert Space')" style="flex: 1; padding: 1.2rem; font-size: 1.05rem;">Start Discovery →</button>
+                        <button class="btn-secondary" style="flex: 1; padding: 1.2rem; font-size: 1.05rem;" onclick="alert('Platform initialized. Select a module to begin.')">Read Documentation</button>
+                    </div>
+                </div>
+                <div style="flex: 1.2;">
+                    <div class="glass-card" style="padding: 0; overflow: hidden;">
+                        <div class="card-header" style="text-align: center; margin: 0; padding: 1rem; background: rgba(100,100,100,0.05); border-bottom: 1px solid var(--border-color);">INTERACTIVE VIEWPORT // IMATINIB</div>
+                        <div style="position: relative; width: 100%; height: 350px;">
+                            <div id="home-3dmol" style="position: absolute; top:0; left:0; width:100%; height:100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="section-title" style="font-size: 1.8rem; margin-bottom: 0.5rem;">Engine Performance & Capacity</h2>
+            <p style="text-align: center; color: var(--subtext-color); margin-bottom: 2rem; font-size: 0.9rem;">Live metrics mapped directly from the active Qiskit Statevector instance.</p>
+
+            <div class="stats-grid">
+                <div class="glass-card stat-box"><div class="stat-value" id="stat-N" style="font-size: 1.5rem;">--</div><div class="stat-label">Total Search Space</div></div>
+                <div class="glass-card stat-box"><div class="stat-value" id="stat-dim" style="font-size: 1.5rem;">--</div><div class="stat-label">Allocated Hilbert Space</div></div>
+                <div class="glass-card stat-box"><div class="stat-value" id="stat-speed" style="font-size: 1.5rem;">O(√N)</div><div class="stat-label">Theoretical Speedup</div></div>
+                <div class="glass-card stat-box"><div class="stat-value" id="stat-opt" style="font-size: 1.5rem;">--</div><div class="stat-label">Optimal Iterations</div></div>
+            </div>
+
+            <div style="text-align: center; margin-top: 4rem;">
+                <h2 class="section-title" style="font-size: 1.8rem; margin-top: 0; margin-bottom: 0.5rem;">Explore Analytical Modules</h2>
+                <p style="color: var(--subtext-color); margin-bottom: 2rem; font-size: 0.9rem;">From 3D probability mapping to live structural testing, master every phase of the discovery pipeline.</p>
+            </div>
+
+            <div class="module-grid">
+                <div class="glass-card module-card"><div class="module-icon">🌌</div><div class="module-title">Hilbert Space Analysis</div><div class="module-desc">Experience full 3D visualization of the Qiskit statevector distribution across your molecular search space.</div><button class="btn-secondary module-btn" onclick="navigate('Hilbert Space')">Launch Module</button></div>
+                <div class="glass-card module-card"><div class="module-icon">🎯</div><div class="module-title">Candidate Extraction</div><div class="module-desc">Isolate the highest-probability hit from the collapsed system wave function.</div><button class="btn-secondary module-btn" onclick="navigate('Top Candidate')">Launch Module</button></div>
+                <div class="glass-card module-card"><div class="module-icon">🛡️</div><div class="module-title">Lipinski Filter</div><div class="module-desc">Batch classical property compliance checks against the Rule of 5.</div><button class="btn-secondary module-btn" onclick="navigate('Lipinski Filter')">Launch Module</button></div>
+                <div class="glass-card module-card"><div class="module-icon">🧬</div><div class="module-title">Tanimoto Similarity</div><div class="module-desc">Perform rapid structural matching utilizing advanced Morgan fingerprint vector analysis.</div><button class="btn-secondary module-btn" onclick="navigate('Similarity Search')">Launch Module</button></div>
+                <div class="glass-card module-card"><div class="module-icon">📈</div><div class="module-title">Grover Analytics</div><div class="module-desc">Examine iteration-by-iteration probability execution logs and simulate depolarization noise.</div><button class="btn-secondary module-btn" onclick="navigate('Grover Analytics')">Launch Module</button></div>
+                <div class="glass-card module-card"><div class="module-icon">✍️</div><div class="module-title">Molecule Designer</div><div class="module-desc">Sketch 2D structures dynamically while running real-time diagnostics against active Oracle phase-flip bounds.</div><button class="btn-secondary module-btn" onclick="navigate('Molecule Designer')">Launch Module</button></div>
+            </div>
+        </div>
+
+        <div id="App-Wrapper" class="page-section" style="display: none;">
+            <div class="app-grid" id="main-app-grid">
+
+                <div class="glass-card sidebar" id="oracle-sidebar" style="padding: 1.5rem; height: fit-content;">
+                    <div class="card-header" style="color: var(--accent-color);">⚙️ ORACLE PARAMETERS</div>
+                    <form id="oracle-form" onsubmit="event.preventDefault(); runQuantumSimulation();">
+                        <div class="slider-group"><label>Min QED Score (<span id="v-qed">0.60</span>)</label><input type="range" id="t_qed" min="0" max="1" step="0.01" value="0.60" oninput="document.getElementById('v-qed').innerText=this.value"></div>
+                        <div class="slider-group"><label>Min MW (<span id="v-minmw">150</span>)</label><input type="range" id="min_mw" min="0" max="1000" step="5" value="150" oninput="document.getElementById('v-minmw').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max MW (<span id="v-maxmw">450</span>)</label><input type="range" id="max_mw" min="0" max="1000" step="5" value="450" oninput="document.getElementById('v-maxmw').innerText=this.value"></div>
+                        <div class="slider-group"><label>Min LogP (<span id="v-minlog">0.5</span>)</label><input type="range" id="min_logp" min="-5" max="10" step="0.1" value="0.5" oninput="document.getElementById('v-minlog').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max LogP (<span id="v-maxlog">3.5</span>)</label><input type="range" id="max_logp" min="-5" max="10" step="0.1" value="3.5" oninput="document.getElementById('v-maxlog').innerText=this.value"></div>
+                        <div class="slider-group"><label>Min TPSA (<span id="v-mintpsa">40</span>)</label><input type="range" id="min_tpsa" min="0" max="300" step="5" value="40" oninput="document.getElementById('v-mintpsa').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max TPSA (<span id="v-maxtpsa">100</span>)</label><input type="range" id="max_tpsa" min="0" max="300" step="5" value="100" oninput="document.getElementById('v-maxtpsa').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max HBD (<span id="v-hbd">3</span>)</label><input type="range" id="max_hbd" min="0" max="10" value="3" oninput="document.getElementById('v-hbd').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max HBA (<span id="v-hba">6</span>)</label><input type="range" id="max_hba" min="0" max="15" value="6" oninput="document.getElementById('v-hba').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max RotBonds (<span id="v-rot">5</span>)</label><input type="range" id="max_rotbonds" min="0" max="15" value="5" oninput="document.getElementById('v-rot').innerText=this.value"></div>
+                        <div class="slider-group"><label>Max Rings (<span id="v-ring">3</span>)</label><input type="range" id="max_rings" min="0" max="10" value="3" oninput="document.getElementById('v-ring').innerText=this.value"></div>
+
+                        <div class="card-header" style="color: var(--accent-color); margin-top: 2rem;">⚡ EXECUTION SETTINGS</div>
+                        <div class="slider-group"><label>Amplitude Iterations (<span id="v-step">5</span>)</label><input type="range" id="grover_steps" min="0" max="50" value="5" oninput="document.getElementById('v-step').innerText=this.value"></div>
+                        <div class="slider-group"><label>Decoherence Noise (<span id="v-noise">0.0</span>)</label><input type="range" id="noise_rate" min="0" max="0.5" step="0.01" value="0.0" oninput="document.getElementById('v-noise').innerText=this.value"></div>
+                        <button type="submit" id="run-btn" class="btn-primary" style="margin-top: 1rem;">Apply & Run Simulation</button>
+                    </form>
+                </div>
+
+                <div class="main-content" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 25px;">
+                        <h2 id="current-module-title" style="margin: 0; font-size: 2.2rem;">Module Name</h2>
+                        <div class="card-header" style="border:none; margin:0; font-size: 0.75rem;" id="status-hdr">Initializing System...</div>
+                    </div>
+
+                    <div id="Hilbert-Space" class="module-view">
+                        <div class="glass-card" style="margin-bottom: 1.5rem; border-color: var(--accent-color); background: rgba(59, 130, 246, 0.05);">
+                            <p style="margin:0; font-size: 0.9rem; line-height: 1.5;"><strong>Quantum Implementation Details:</strong> This pure simulation utilizes Qiskit's `Statevector` to model a physical system, structuring a complete Hilbert space. The Oracle is actively generated as a diagonal unitary matrix that precisely executes a -1 phase-shift exclusively on the valid target indices before diffusion.</p>
+                        </div>
+                        <div id="hilbert-plot" style="width: 100%; height: 600px; margin-bottom: 20px;"></div>
+                        <h4 style="margin-bottom: 10px;">Top 20 Extracted Candidates</h4>
+                        <div class="glass-card" style="padding: 0; overflow-x: auto;">
+                            <div id="hilbert-table-container"></div>
+                        </div>
+                    </div>
+
+                    <div id="Top-Candidate" class="module-view" style="display:none;">
+                        <h3 style="margin-bottom: 20px; font-size: 1.5rem;">Measured Wave Collapse: <span style="color: var(--accent-color); font-family: 'JetBrains Mono';" id="tc-name">--</span></h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 1.5rem;">
+                            <div class="glass-card">
+                                <div class="card-header">Physical Profile</div>
+                                <div class="data-metric"><div class="data-lbl">Measurement Prob</div><div class="data-val" style="color:var(--accent-color);" id="tc-prob">--</div></div>
+                                <div class="data-metric"><div class="data-lbl">Molecular Weight</div><div class="data-val" id="tc-mw">--</div></div>
+                                <div class="data-metric"><div class="data-lbl">LogP</div><div class="data-val" id="tc-logp">--</div></div>
+                                <div class="data-metric"><div class="data-lbl">QED</div><div class="data-val" id="tc-qed">--</div></div>
+                                <div class="data-metric"><div class="data-lbl">TPSA</div><div class="data-val" id="tc-tpsa">--</div></div>
+                            </div>
+                            <div class="glass-card" style="display: flex; flex-direction: column;">
+                                <div class="card-header">Lipinski Compliance</div>
+                                <div id="tc-lipinski-badges"></div>
+                                <div id="tc-verdict" style="margin-top: 10px; margin-bottom: 10px;"></div>
+                                <div id="radar-plot" style="width: 100%; height: 200px; margin-top: auto;"></div>
+                            </div>
+                            <div class="glass-card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+                                <div class="card-header" style="text-align: center; margin: 0; padding: 1rem; background: rgba(100,100,100,0.05); border-bottom: 1px solid var(--border-color);">3D STRUCTURE VIEWPORT</div>
+                                <div style="position: relative; width: 100%; flex-grow: 1; min-height: 350px;">
+                                    <div id="tc-3dmol" style="position: absolute; top:0; left:0; width:100%; height:100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="Lipinski-Filter" class="module-view" style="display:none;">
+                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;">
+                            <div class="glass-card">
+                                <div id="lipinski-pie" style="width: 100%; height: 350px;"></div>
+                            </div>
+                            <div class="glass-card" style="max-height: 400px; overflow-y: auto; padding: 0;">
+                                <div id="lipinski-table-container"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="Similarity-Search" class="module-view" style="display:none;">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="sim-input" placeholder="Input Query SMILES String" class="text-input" value="CC(=O)OC1=CC=CC=C1C(=O)O">
+                            <button class="btn-primary" style="width: 250px;" onclick="runSimilarity()">Search Fingerprints</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; margin-top: 20px;">
+                            <div class="glass-card">
+                                <div id="sim-plot" style="width: 100%; height: 350px;"></div>
+                            </div>
+                            <div class="glass-card" style="padding: 0; overflow: hidden;">
+                                <div class="card-header" id="sim-top-match" style="margin: 0; padding: 1rem; text-align: center; background: rgba(100,100,100,0.05); border-bottom: 1px solid var(--border-color);">Top Match: --</div>
+                                <div style="position: relative; width: 100%; height: 300px;">
+                                    <div id="sim-3dmol" style="position: absolute; top:0; left:0; width:100%; height:100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="Grover-Analytics" class="module-view" style="display:none;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 20px;">
+                            <div class="glass-card" style="padding: 10px;">
+                                <div id="grover-line" style="width: 100%; height: 300px;"></div>
+                            </div>
+                            <div class="glass-card" style="padding: 10px;">
+                                <div id="grover-bar" style="width: 100%; height: 300px;"></div>
+                            </div>
+                        </div>
+                        <h3 style="margin-top: 1rem; margin-bottom: 1rem; font-size: 1.2rem;">Execution Logs</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                            <div>
+                                <div class="log-panel"><div class="log-title">[PHASE 1] QISKIT STATEVECTOR INIT</div><div class="log-data" id="log-init">Hilbert space dimension mapped correctly. Initial state probability uniformly distributed.</div></div>
+                                <div class="log-panel"><div class="log-title">[PHASE 2] DIAGONAL ORACLE KICKBACK</div><div class="log-data" id="log-oracle">Phase-flip successfully applied to target substates matching active constraints.</div></div>
+                                <div class="log-panel"><div class="log-title">[PHASE 3] DIFFUSION (INVERSION)</div><div class="log-data">Statevector successfully evolved via native Grover operator reflection matrix.</div></div>
+                            </div>
+                            <div>
+                                <div class="log-panel"><div class="log-title">[HARDWARE] SIMULATED DECOHERENCE</div><div class="log-data" id="log-noise">Approximated noise depolarizing rate applied.</div></div>
+                                <div class="log-panel"><div class="log-title">[METRICS] COMPLEXITY DELTA</div><div class="log-data" id="log-speedup">Mathematical steps bounded perfectly compared to O(N).</div></div>
+                                <div class="log-panel" style="border-color: #10b981; box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);"><div class="log-title" style="color: #10b981;">[RESULT] WAVEFUNCTION COLLAPSE</div><div class="log-data" id="log-collapse">--</div></div>
+                            </div>
+                        </div>
+                    </div>
+
+<div id="Molecule-Designer" class="module-view" style="display:none;">
+    <div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 1.5rem;">
+
+        <div class="glass-card" style="padding: 0; overflow: hidden; height: 750px; background: #ffffff; display: flex; flex-direction: column;">
+            <div class="card-header" style="margin: 0; padding: 1rem; background: #f8fafc; border-bottom: 1px solid var(--border-color); color: #0f172a; font-weight: 800;">MOLECULE EDITOR</div>
+
+            <iframe id="ketcher-frame" src="ketcher/standalone/index.html" style="width: 100%; flex-grow: 1; border: none; min-height: 0;" allowfullscreen></iframe>
+        </div>
+
+        <div class="glass-card" style="display: flex; flex-direction: column; height: 750px;">
+            <div class="card-header">Live Diagnostics</div>
+            <input type="text" id="designer-smi" placeholder="Paste SMILES here..." class="text-input" style="margin-bottom: 10px;">
+            <button class="btn-secondary" onclick="runDesignerDiagnostics()" style="margin-bottom: 15px;">Run Diagnostics</button>
+
+            <div id="designer-results" style="font-size: 0.9rem; flex-grow: 1; overflow-y: auto;"></div>
+
+            <div class="card-header" style="text-align: center; margin-top: 1.5rem; border-bottom: none;">LIVE 3D STRUCTURE</div>
+            <div style="position: relative; width: 100%; height: 250px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div id="designer-3dmol" style="position: absolute; top:0; left:0; width:100%; height:100%;"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+                    <div id="Q-Visualizer" class="module-view" style="display:none;">
+                        <p style="color: var(--subtext-color); margin-bottom: 2rem;">Watch the algorithmic mechanics of Amplitude Amplification isolate a target molecule from a multi-dimensional vector space.</p>
+                        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem;">
+                            <div>
+                                <div class="glass-card" style="padding: 1.5rem; margin-bottom: 1.5rem;">
+                                    <div class="card-header">Algorithmic Complexity & Mechanics</div>
+                                    <p style="margin-bottom: 1rem; font-size: 0.9rem;">Classical linear search requires $O(N)$ operations. By mapping molecules to an $n$-dimensional Hilbert space, we execute a deterministic search with exponential algorithmic efficiency: $O(\sqrt{N})$.</p>
+                                    <p style="margin-bottom: 0; font-size: 0.9rem;">This visualization tracks <b>Aspirin</b> hidden inside a dataset of $N=64$ molecules. Watch the linear algebraic operations manipulate the probability amplitudes dynamically to force constructive interference.</p>
+                                </div>
+                                <button class="btn-primary" onclick="runQVisualizer()" style="padding: 1.2rem; width: 100%;">Initialize & Run Quantum Sequence</button>
+                                <div id="qv-status-box" class="glass-card" style="margin-top: 20px; border-color: #10b981; background: rgba(16, 185, 129, 0.05); display: none;">
+                                    <p id="qv-status" style="margin: 0; font-weight: normal; color: var(--text-color); font-size: 0.9rem; line-height: 1.5;"></p>
+                                </div>
+                            </div>
+                            <div class="glass-card" style="padding: 0;">
+                                <div id="qv-plot" style="width: 100%; height: 450px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="margin-top: 1.5rem; padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--subtext-color);">
+                        ✓ Wavefunction Collapsed! Targets Identified: <span id="app-target-count" style="color: var(--text-color); font-weight: bold;">--</span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-container">
+        <div style="color: var(--text-color); font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 1.6rem; margin-bottom: 0.5rem; letter-spacing: 0.05em;">⚛️ Q-DISCOVER PLATFORM</div>
+        <div style="color: var(--subtext-color); font-size: 1.05rem; margin-bottom: 1.8rem; font-weight: 500;">Powered by IBM Qiskit Quantum Integration. Empowering computational chemists and quantum researchers.</div>
+        <div style="display: inline-block; padding: 0.8rem 2.5rem; border-radius: 12px; background: var(--accent-light); border: 1px solid var(--accent-color); color: var(--accent-color); font-size: 0.95rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">
+            PROJECT BY TEAM AVENGERS <span style="opacity: 0.5; margin: 0 10px;">|</span> GUIDANCE: DR. M. JAHIR PASHA
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
