@@ -105,7 +105,6 @@ def load_data():
         GLOBAL_DF = pd.concat([pd.DataFrame(base_data), pd.DataFrame(real_data)], ignore_index=True).drop_duplicates(
             subset=['SMILES']).reset_index(drop=True)
 
-# Fixed Pydantic formatting to prevent silent payload errors
 class OracleConfig(BaseModel):
     t_qed: float
     min_mw: float
@@ -229,7 +228,6 @@ def get_props(query: SmilesQuery):
     }
     checks = {"MW <= 500 Da": props['MW'] <= 500, "LogP <= 5": props['LogP'] <= 5, "HBD <= 5": props['HBD'] <= 5, "HBA <= 10": props['HBA'] <= 10}
     return {"props": props, "checks": checks, "violations": sum(1 for v in checks.values() if not v)}
-
 
 if __name__ == "__main__":
     print("\n⚛️  Starting Q-DISCOVER Fast API Backend...")

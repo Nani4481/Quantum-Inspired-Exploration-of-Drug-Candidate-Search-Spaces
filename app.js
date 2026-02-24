@@ -1,6 +1,7 @@
 const API_URL = "http://127.0.0.1:8000/api";
 let globalSimData = null;
 let currentActivePage = "Home";
+let costAnimationInterval = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     fetch3Dmol("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5", "home-3dmol");
@@ -12,7 +13,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if(globalSimData) renderSpecificView(currentActivePage);
     });
 
-    // Run the initial simulation right away
     await runQuantumSimulation();
 });
 
@@ -29,8 +29,7 @@ function navigate(pageId) {
     const sidebar = document.getElementById('oracle-sidebar');
     const appGrid = document.getElementById('main-app-grid');
 
-    // Hide sidebar for exact pages as per your Streamlit photos
-    if (['Similarity Search', 'Lipinski Filter', 'Q-Visualizer'].includes(pageId)) {
+    if (['Similarity Search', 'Lipinski Filter', 'Q-Visualizer', 'Algorithm Race', 'Cost Simulator'].includes(pageId)) {
         if(sidebar) sidebar.style.display = 'none';
         if(appGrid) appGrid.style.gridTemplateColumns = '1fr';
     } else {
@@ -44,10 +43,7 @@ function navigate(pageId) {
         if (wrapper) wrapper.style.display = 'none';
     } else {
         const wrapper = document.getElementById('App-Wrapper');
-        if (wrapper) {
-            wrapper.style.display = 'block';
-            wrapper.classList.add('active');
-        }
+        if (wrapper) { wrapper.style.display = 'block'; wrapper.classList.add('active'); }
 
         const titleEl = document.getElementById('current-module-title');
         if (titleEl) titleEl.innerText = pageId;
@@ -78,14 +74,12 @@ async function runQuantumSimulation() {
 
     try {
         const res = await fetch(`${API_URL}/simulate`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) });
-        if(!res.ok) throw new Error("Backend Crash or Data Error");
+        if(!res.ok) throw new Error("Backend Crash");
         globalSimData = await res.json();
 
-        // Exact header match from Photo 3
-        const hdrStr = `SEARCH SPACE: <span style="color:var(--text-color); font-weight:bold;">${globalSimData.N.toLocaleString()}</span> &nbsp;|&nbsp; ORACLE TARGETS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.targets_count.toLocaleString()}</span> &nbsp;|&nbsp; ALLOCATED QUBITS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.num_qubits}</span> (${globalSimData.dim.toLocaleString()} SUBSTATES)`;
+        const hdrStr = `SEARCH SPACE: <span style="color:var(--text-color); font-weight:bold;">${globalSimData.N.toLocaleString()}</span> &nbsp;|&nbsp; ORACLE TARGETS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.targets_count.toLocaleString()}</span> &nbsp;|&nbsp; ALLOCATED QUBITS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.num_qubits}</span>`;
         if(statusHdr) statusHdr.innerHTML = hdrStr;
 
-        // Bulletproof DOM updates (prevents JS crashes if a page is missing)
         const statN = document.getElementById('stat-N'); if(statN) statN.innerText = globalSimData.N.toLocaleString();
         const statDim = document.getElementById('stat-dim'); if(statDim) statDim.innerText = globalSimData.dim.toLocaleString();
         const statOpt = document.getElementById('stat-opt'); if(statOpt) statOpt.innerText = globalSimData.opt_steps;
@@ -94,8 +88,8 @@ async function runQuantumSimulation() {
 
         renderSpecificView(currentActivePage);
     } catch(err) {
-        console.error("System Error Details:", err);
-        if(statusHdr) statusHdr.innerHTML = `<span style="color:#ef4444; font-weight:bold;">BACKEND ERROR - SERVER UNREACHABLE (CHECK CONSOLE)</span>`;
+        console.error(err);
+        if(statusHdr) statusHdr.innerHTML = `<span style="color:#ef4444; font-weight:bold;">BACKEND ERROR</span>`;
     }
 
     if(btn) btn.innerText = "Apply & Run Simulation";
@@ -112,53 +106,188 @@ function renderSpecificView(pageId) {
     if(pageId === 'Top Candidate') renderTopCandidate();
     if(pageId === 'Grover Analytics') renderAnalytics();
     if(pageId === 'Lipinski Filter') renderLipinskiFilter();
+    if(pageId === 'Algorithm Race') initRaceView();
+    if(pageId === 'Cost Simulator') renderCostSimulator(false);
 }
 
+function renderCostSimulator(animate = false) {
+    const l = getLayoutProps();
+
+    let N = parseInt(document.getElementById('cost-n').value) || 1000000;
+    let costPer = parseFloat(document.getElementById('cost-per').value) || 10;
+    let timePer = parseFloat(document.getElementById('cost-time').value) || 1;
+
+    let cCost = N * costPer;
+    let cTime = N * timePer;
+    let qEst = Math.floor(Math.sqrt(N));
+    let qCost = qEst * costPer;
+    let qTime = qEst * timePer;
+    let speedup = qTime > 0 ? cTime / qTime : 0;
+
+    document.getElementById('metric-c-cost').innerText = `$${cCost.toLocaleString()}`;
+    document.getElementById('metric-c-time').innerText = `${cTime.toLocaleString()} sec`;
+    document.getElementById('metric-q-cost').innerText = `$${qCost.toLocaleString()}`;
+    document.getElementById('metric-q-time').innerText = `${qTime.toLocaleString()} sec`;
+    document.getElementById('metric-speedup').innerText = `${speedup.toLocaleString(undefined, {maximumFractionDigits: 0})}x`;
+
+    document.getElementById('real-world-text').innerHTML = `Your classical simulation at N=${N.toLocaleString()} already costs <strong>$${cCost.toLocaleString()}</strong>, showing how early-stage screening contributes significantly to pharmaceutical R&D expenses. Quantum-inspired tools reduce this to $${qCost.toLocaleString()}.`;
+
+    Plotly.newPlot('cost-bar-chart', [{
+        x: ["Classical", "Quantum-Inspired"], y: [cCost, qCost], type: 'bar',
+        text: [`$${cCost.toLocaleString()}`, `$${qCost.toLocaleString()}`], textposition: 'auto',
+        marker: { color: ['#ef4444', '#10b981'] }
+    }], { title: {text: 'Total Cost Comparison ($)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30} });
+
+    let sizes = [];
+    let maxN = Math.max(N, 1000);
+    for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
+    let cCurve = sizes.map(s => s);
+    let qCurve = sizes.map(s => Math.sqrt(s));
+
+    Plotly.newPlot('cost-log-chart', [
+        { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
+        { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
+    ], { title: {text: 'Logarithmic View (Real Difference)', font: {size: 14}}, yaxis: {type: 'log'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30}, legend: {x: 0, y: 1} });
+
+    if (!animate) {
+        Plotly.newPlot('cost-scaling-chart', [
+            { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
+            { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
+        ], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
+    }
+}
+
+function animateCostCurve() {
+    if(costAnimationInterval) clearInterval(costAnimationInterval);
+
+    let N = parseInt(document.getElementById('cost-n').value) || 1000000;
+    let sizes = [];
+    let maxN = Math.max(N, 1000);
+    for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
+    let cCurve = sizes.map(s => s);
+    let qCurve = sizes.map(s => Math.sqrt(s));
+
+    let step = 5;
+    const l = getLayoutProps();
+
+    Plotly.newPlot('cost-scaling-chart', [
+        { x: sizes.slice(0, step), y: cCurve.slice(0, step), mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
+        { x: sizes.slice(0, step), y: qCurve.slice(0, step), mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
+    ], { xaxis: {range: [0, maxN]}, yaxis: {range: [0, maxN]}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
+
+    costAnimationInterval = setInterval(() => {
+        step += 2;
+        Plotly.update('cost-scaling-chart', {
+            x: [sizes.slice(0, step), sizes.slice(0, step)],
+            y: [cCurve.slice(0, step), qCurve.slice(0, step)]
+        });
+        if(step >= sizes.length) clearInterval(costAnimationInterval);
+    }, 40);
+}
+
+function initRaceView() {
+    document.getElementById('race-classic-text').innerText = `0 / ${globalSimData.N.toLocaleString()}`;
+    document.getElementById('race-quantum-text').innerText = `0 / ${globalSimData.opt_steps}`;
+    document.getElementById('race-classic-fill').style.width = '0%';
+    document.getElementById('race-quantum-fill').style.width = '0%';
+    document.getElementById('race-classic-cost').innerText = "$0.00";
+    document.getElementById('race-quantum-cost').innerText = "$0.00";
+    document.getElementById('race-winner-text').style.display = 'none';
+}
+
+function startRace() {
+    if(!globalSimData) return;
+    const btn = document.getElementById('start-race-btn');
+    btn.disabled = true;
+    initRaceView();
+
+    const N = globalSimData.N;
+    const steps = globalSimData.opt_steps;
+
+    let qCount = 0;
+    const qInterval = setInterval(() => {
+        qCount++;
+        const pct = (qCount / steps) * 100;
+        document.getElementById('race-quantum-fill').style.width = `${pct}%`;
+        document.getElementById('race-quantum-text').innerText = `${qCount} / ${steps}`;
+        document.getElementById('race-quantum-cost').innerText = "$" + (qCount * 0.05).toFixed(2);
+        if(qCount >= steps) {
+            clearInterval(qInterval);
+            document.getElementById('race-winner-text').style.display = 'block';
+        }
+    }, 1000 / steps);
+
+    let cCount = 0;
+    const cInterval = setInterval(() => {
+        cCount += Math.floor(N / 80);
+        if(cCount > N) cCount = N;
+        const pct = (cCount / N) * 100;
+        document.getElementById('race-classic-fill').style.width = `${pct}%`;
+        document.getElementById('race-classic-text').innerText = `${cCount.toLocaleString()} / ${N.toLocaleString()}`;
+        document.getElementById('race-classic-cost').innerText = "$" + (cCount * 0.01).toFixed(2);
+        if(cCount >= N) {
+            clearInterval(cInterval);
+            btn.disabled = false;
+        }
+    }, 100);
+}
+
+// -------------------------------------------------------------------
+// THE FIX IS HERE: WebGL Precision and Color Scaling Safety Bounds
+// -------------------------------------------------------------------
 function renderHilbertSpace() {
     if(document.getElementById('Hilbert-Space').style.display === 'none') return;
     const data = globalSimData.display_df;
     const l = getLayoutProps();
 
-    // Create an array of probability numbers to drive the continuous color scale
     const probValues = data.map(d => d.Probability);
+    let minP = Math.min(...probValues);
+    let maxP = Math.max(...probValues);
+
+    // FIX: If the distribution is completely flat (0 targets), create a massive artificial safe gap
+    // to prevent the WebGL 32-bit floats from hitting a divide-by-zero precision crash.
+    let cminVal = minP;
+    let cmaxVal = maxP;
+    if ((maxP - minP) < 1e-5) {
+        cminVal = 0;
+        cmaxVal = maxP > 0 ? maxP * 3 : 1; // Creates a massive padding for math scaling
+    }
+
     const sizes = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 14 : 5);
+    const symbols = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 'diamond' : 'circle');
+    const lineColors = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? '#ffffff' : 'transparent');
+    const lineWidths = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 2 : 0);
 
     Plotly.newPlot('hilbert-plot', [{
         x: data.map(d=>d.MW), y: data.map(d=>d.LogP), z: probValues, text: data.map(d=>d.Name),
         mode: 'markers', type: 'scatter3d',
         marker: {
             size: sizes,
-            color: probValues, // <--- Using actual probabilities for color
-            colorscale: [      // <--- Custom Quantum Theme Color Scale
-                [0, '#1e293b'],       // Base state: Slate
-                [0.1, '#3b82f6'],     // Low probability: Blue
-                [0.5, '#a855f7'],     // Amplifying: Purple
-                [1.0, '#f59e0b']      // Top Hit: Gold/Orange
-            ],
+            color: probValues,
+            cmin: cminVal, // Applies our safe minimum
+            cmax: cmaxVal, // Applies our safe maximum
+            colorscale: [[0, '#1e293b'], [0.1, '#3b82f6'], [0.5, '#a855f7'], [1.0, '#f59e0b']],
             showscale: true,
-            colorbar: {
-                title: '|Ψ|² Prob',
-                thickness: 15,
-                tickfont: {color: l.fontCol},
-                titlefont: {color: l.fontCol, size: 12}
-            },
+            colorbar: { title: '|Ψ|² Prob', thickness: 15, tickfont: {color: l.fontCol}, titlefont: {color: l.fontCol, size: 12} },
             opacity: 0.9,
-            symbol: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 'diamond' : 'circle'),
-            line: { // Adds a white outline specifically to the top hit so it stands out
-                color: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? '#ffffff' : 'transparent'),
-                width: data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 2 : 0)
-            }
+            symbol: symbols,
+            line: { color: lineColors, width: lineWidths }
         }
     }], {
         paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol },
-        scene: { xaxis: {title: 'Mass (Da)'}, yaxis: {title: 'LogP'}, zaxis: {title: '|Ψ|² Probability'} }, margin: {l:0,r:0,t:0,b:0}
+        scene: {
+            xaxis: {title: 'Mass (Da)'},
+            yaxis: {title: 'LogP'},
+            zaxis: {
+                title: '|Ψ|² Probability',
+                range: [0, maxP > 0 ? maxP * 1.5 : 1] // Forces the graph floor to 0 so flat states sit properly
+            }
+        },
+        margin: {l:0,r:0,t:0,b:0}
     });
 
-    // Top 20 Table
     let tableHTML = `<table class="custom-table"><tr><th>Name</th><th>Classification</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>HBD</th><th>HBA</th><th>Probability</th></tr>`;
-    data.slice(0, 20).forEach(d => {
-        tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.QED.toFixed(3)}</td><td>${d.TPSA.toFixed(1)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`;
-    });
+    data.slice(0, 20).forEach(d => { tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.QED.toFixed(3)}</td><td>${d.TPSA.toFixed(1)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`; });
     tableHTML += `</table>`;
     const tbContainer = document.getElementById('hilbert-table-container');
     if (tbContainer) tbContainer.innerHTML = tableHTML;
@@ -167,7 +296,6 @@ function renderHilbertSpace() {
 function renderTopCandidate() {
     if(document.getElementById('Top-Candidate').style.display === 'none') return;
     const hit = globalSimData.top_hit;
-
     document.getElementById('tc-name').innerText = hit.Name;
     document.getElementById('tc-prob').innerText = (hit.Probability * 100).toFixed(4) + "%";
     document.getElementById('tc-mw').innerText = hit.MW.toFixed(2) + " Da";
@@ -175,28 +303,14 @@ function renderTopCandidate() {
     document.getElementById('tc-qed').innerText = hit.QED.toFixed(3);
     document.getElementById('tc-tpsa').innerText = hit.TPSA.toFixed(1) + " Å²";
 
-    // Lipinski Badges
-    let v = 0;
-    let badgeHtml = '';
-    const checks = [
-        {name: "MW ≤ 500 Da", pass: hit.MW <= 500},
-        {name: "LogP ≤ 5", pass: hit.LogP <= 5},
-        {name: "HBD ≤ 5", pass: hit.HBD <= 5},
-        {name: "HBA ≤ 10", pass: hit.HBA <= 10}
-    ];
-    checks.forEach(c => {
-        if(!c.pass) v++;
-        badgeHtml += `<div class="${c.pass ? 'badge-pass' : 'badge-fail'}" style="margin-bottom: 8px;">${c.pass ? 'PASS' : 'FAIL'} &mdash; ${c.name}</div>`;
-    });
+    let v = 0; let badgeHtml = '';
+    const checks = [{name: "MW ≤ 500 Da", pass: hit.MW <= 500}, {name: "LogP ≤ 5", pass: hit.LogP <= 5}, {name: "HBD ≤ 5", pass: hit.HBD <= 5}, {name: "HBA ≤ 10", pass: hit.HBA <= 10}];
+    checks.forEach(c => { if(!c.pass) v++; badgeHtml += `<div class="${c.pass ? 'badge-pass' : 'badge-fail'}" style="margin-bottom: 8px;">${c.pass ? 'PASS' : 'FAIL'} &mdash; ${c.name}</div>`; });
     document.getElementById('tc-lipinski-badges').innerHTML = badgeHtml;
     document.getElementById('tc-verdict').innerHTML = `<div class="card-header" style="font-size: 0.75rem; border:none; margin-bottom:5px;">SYSTEM VERDICT:</div><div class="${v<=1?'badge-pass':'badge-fail'}">${v<=1?'COMPLIANT':`NON-COMPLIANT (${v})`}</div>`;
 
     const l = getLayoutProps();
-    Plotly.newPlot('radar-plot', [{
-        type: 'scatterpolar', r: [hit.QED, Math.min(hit.MW/500,1), Math.min((hit.LogP+5)/15,1), Math.min(hit.TPSA/140,1), Math.min(hit.HBD/5,1), Math.min(hit.HBA/10,1)],
-        theta: ['QED','MW','LogP','TPSA','HBD','HBA'], fill: 'toself', line: {color: '#3b82f6'}
-    }], { polar: {radialaxis:{visible:false}, bgcolor: l.bg}, paper_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:30,r:30,t:10,b:10} });
-
+    Plotly.newPlot('radar-plot', [{ type: 'scatterpolar', r: [hit.QED, Math.min(hit.MW/500,1), Math.min((hit.LogP+5)/15,1), Math.min(hit.TPSA/140,1), Math.min(hit.HBD/5,1), Math.min(hit.HBA/10,1)], theta: ['QED','MW','LogP','TPSA','HBD','HBA'], fill: 'toself', line: {color: '#3b82f6'} }], { polar: {radialaxis:{visible:false}, bgcolor: l.bg}, paper_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:30,r:30,t:10,b:10} });
     if(hit.SMILES && hit.SMILES !== "C") fetch3Dmol(hit.SMILES, 'tc-3dmol');
 }
 
@@ -215,35 +329,26 @@ function renderLipinskiFilter() {
     });
     tableHTML += `</table>`;
     document.getElementById('lipinski-table-container').innerHTML = tableHTML;
-
-    Plotly.newPlot('lipinski-pie', [{
-        values: [passCount, failCount], labels: ['Compliant', 'Non-Compliant'], type: 'pie', hole: 0.6, marker: { colors: ['#3b82f6', '#f59e0b'] }
-    }], { title: 'Dataset Compliance', paper_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l:20, r:20, t:40, b:20} });
+    Plotly.newPlot('lipinski-pie', [{ values: [passCount, failCount], labels: ['Compliant', 'Non-Compliant'], type: 'pie', hole: 0.6, marker: { colors: ['#3b82f6', '#f59e0b'] } }], { title: 'Dataset Compliance', paper_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l:20, r:20, t:40, b:20} });
 }
 
 function renderAnalytics() {
     if(document.getElementById('Grover-Analytics').style.display === 'none') return;
     const l = getLayoutProps();
-
     const trace = globalSimData.psi_history.map(stepProbs => Math.max(...stepProbs));
     const xSteps = Array.from({length: trace.length}, (_, i) => i);
 
-    Plotly.newPlot('grover-line', [{ x: xSteps, y: trace, type: 'scatter', mode: 'lines+markers', line:{color:'#3b82f6', width: 3}, marker:{size:8} }], {
-        title: {text: 'Amplitude Amplification Trace (Qiskit Base)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, xaxis:{title:'Grover Iteration', tickmode:'linear'}, yaxis:{title:'|Ψ|² Probability'}, margin:{l:50,r:20,t:40,b:40}
-    });
+    Plotly.newPlot('grover-line', [{ x: xSteps, y: trace, type: 'scatter', mode: 'lines+markers', line:{color:'#3b82f6', width: 3}, marker:{size:8} }], { title: {text: 'Amplitude Amplification Trace (Qiskit)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, xaxis:{title:'Grover Iteration', tickmode:'linear'}, yaxis:{title:'|Ψ|² Probability'}, margin:{l:50,r:20,t:40,b:40} });
 
     const top50 = globalSimData.display_df.slice(0,50);
-    Plotly.newPlot('grover-bar', [{ x: top50.map((_,i)=>i), y: top50.map(d=>d.Probability), type: 'bar', marker:{color: top50.map(d=>d.Classification==='Suppressed Noise'? '#475569':'#3b82f6')} }], {
-        title: {text:'Top 50 Qubit State Probabilities', font: {size: 14}}, xaxis:{title:'State Rank'}, yaxis:{title:'|Ψ|² Probability'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:50,r:20,t:40,b:40}
-    });
+    Plotly.newPlot('grover-bar', [{ x: top50.map((_,i)=>i), y: top50.map(d=>d.Probability), type: 'bar', marker:{color: top50.map(d=>d.Classification==='Suppressed Noise'? '#475569':'#3b82f6')} }], { title: {text:'Top 50 Qubit States', font: {size: 14}}, xaxis:{title:'State Rank'}, yaxis:{title:'|Ψ|² Probability'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:50,r:20,t:40,b:40} });
 
-    document.getElementById('log-init').innerHTML = `Allocated ${globalSimData.num_qubits} Qubits dynamically.<br>Hilbert space dimension 2^${globalSimData.num_qubits} = ${globalSimData.dim.toLocaleString()}.<br>Initial state probability uniformly distributed at ${(1/globalSimData.dim).toFixed(6)}.`;
-    document.getElementById('log-oracle').innerHTML = `Phase-flip successfully applied.<br>Identified ${globalSimData.targets_count.toLocaleString()} target substates matching active constraints.`;
-
-    const noiseRate = document.getElementById('noise_rate').value;
-    document.getElementById('log-noise').innerHTML = `Approximated noise depolarizing rate: ${noiseRate}.<br>Coherence preserved: ${((1-noiseRate)*100).toFixed(0)}%`;
-    document.getElementById('log-speedup').innerHTML = `Classical Search: O(N) = ${globalSimData.N.toLocaleString()} iterations<br>Quantum Search: O(√N) = ${Math.floor(Math.sqrt(globalSimData.dim)).toLocaleString()} iterations<br>System limit bounded to ${globalSimData.opt_steps} mathematical steps.`;
-    document.getElementById('log-collapse').innerHTML = `Superposition collapsed to highest probability state:<br><b>${globalSimData.top_hit.Name}</b> at ${(globalSimData.top_hit.Probability*100).toFixed(4)}% amplitude.`;
+    document.getElementById('log-init').innerHTML = `Allocated ${globalSimData.num_qubits} Qubits dynamically.<br>Hilbert space dimension 2^${globalSimData.num_qubits} = ${globalSimData.dim.toLocaleString()}.`;
+    document.getElementById('log-oracle').innerHTML = `Phase-flip applied. Target count: ${globalSimData.targets_count.toLocaleString()}`;
+    const nr = document.getElementById('noise_rate').value;
+    document.getElementById('log-noise').innerHTML = `Noise depolarizing rate: ${nr}.<br>Coherence preserved: ${((1-nr)*100).toFixed(0)}%`;
+    document.getElementById('log-speedup').innerHTML = `O(N) = ${globalSimData.N.toLocaleString()} iters vs O(√N) = ${globalSimData.opt_steps} iters.`;
+    document.getElementById('log-collapse').innerHTML = `Collapsed state:<br><b>${globalSimData.top_hit.Name}</b> at ${(globalSimData.top_hit.Probability*100).toFixed(4)}% amp.`;
 }
 
 async function runSimilarity() {
@@ -252,9 +357,7 @@ async function runSimilarity() {
     const res = await fetch(`${API_URL}/similarity`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({smiles: smi}) });
     const data = await res.json();
     const l = getLayoutProps();
-    Plotly.newPlot('sim-plot', [{ x: data.matches.map(d=>d.Name), y: data.matches.map(d=>d.Tanimoto), type: 'bar', marker:{color:'#3b82f6'} }], {
-        paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:40,r:20,t:20,b:40}
-    });
+    Plotly.newPlot('sim-plot', [{ x: data.matches.map(d=>d.Name), y: data.matches.map(d=>d.Tanimoto), type: 'bar', marker:{color:'#3b82f6'} }], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:40,r:20,t:20,b:40} });
     document.getElementById('sim-top-match').innerText = `Top Match: ${data.matches[0].Name} (${data.matches[0].Tanimoto.toFixed(3)})`;
     fetch3Dmol(data.matches[0].SMILES, 'sim-3dmol');
 }
@@ -298,9 +401,7 @@ async function runQVisualizer() {
     const xLabels = Array.from({length: N}, (_, i) => i === targetIdx ? "ASPIRIN" : `SYN-${i.toString().padStart(3, '0')}`);
 
     function plotIt(ydata, title, yTitle="Probability Amplitude", yRange=[-0.4, 0.8]) {
-        Plotly.newPlot('qv-plot', [{ x: xLabels, y: ydata, type: 'bar', marker:{color: ydata.map((_,i)=> i===targetIdx ? '#f59e0b' : '#3b82f6')} }], {
-            title: title, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, yaxis:{title: yTitle, range:yRange}, xaxis: {showticklabels: false}, margin:{l:50,r:20,t:40,b:40}
-        });
+        Plotly.newPlot('qv-plot', [{ x: xLabels, y: ydata, type: 'bar', marker:{color: ydata.map((_,i)=> i===targetIdx ? '#f59e0b' : '#3b82f6')} }], { title: title, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, yaxis:{title: yTitle, range:yRange}, xaxis: {showticklabels: false}, margin:{l:50,r:20,t:40,b:40} });
     }
 
     stat.innerHTML = "<b>PHASE 1: UNIFORM SUPERPOSITION</b><br>The Statevector is initialized. Hadamard gates apply a uniform transformation across the basis states. Every molecule exists simultaneously with an identical initial amplitude.";
