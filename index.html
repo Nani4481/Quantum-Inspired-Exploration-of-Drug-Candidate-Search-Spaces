@@ -114,7 +114,8 @@
 <div id="Cost-Simulator" class="module-view" style="display:none;">
                         <div class="glass-card" style="margin-bottom: 2rem; border-color: var(--accent-color); background: rgba(59, 130, 246, 0.05);">
                             <h3 style="margin-top: 0;">💰 Why Discovery Is Expensive</h3>
-                            <p style="margin:0; font-size: 0.95rem; line-height: 1.6;"><strong>Cost Scaling Educational Module:</strong> Classical computational screening scales linearly <i>O(N)</i>. Quantum exploration scales quadratically <i>O(√N)</i>. Even if a single Quantum evaluation is <strong>10x more expensive</strong> ($100 vs $10), watch how the mathematical speedup saves billions at scale.</p>                        </div>
+                            <p style="margin:0; font-size: 0.95rem; line-height: 1.6;"><strong>Cost Scaling Educational Module:</strong> Classical computational screening scales linearly <i>O(N)</i>. Quantum exploration scales quadratically <i>O(√N)</i>. Even if a single Quantum evaluation is <strong>10x more expensive</strong> ($100 vs $10), watch how the mathematical speedup saves billions at scale.</p>
+                        </div>
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                             <div class="glass-card" style="padding: 1rem;" id="cost-n-tour">
@@ -141,7 +142,9 @@
                             <div class="glass-card" style="border-left: 4px solid #ef4444;"><h3 style="color: #ef4444; margin-top: 0;">🧪 Classical Screening</h3><div class="data-metric"><div class="data-lbl">Total Cost</div><div class="data-val" id="metric-c-cost">--</div></div><div class="data-metric"><div class="data-lbl">Total Time</div><div class="data-val" id="metric-c-time" style="font-size: 1.5rem;">--</div></div></div>
                             <div class="glass-card" style="border-left: 4px solid #10b981;"><h3 style="color: #10b981; margin-top: 0;">⚛️ Quantum-Inspired</h3><div class="data-metric"><div class="data-lbl">Estimated Cost</div><div class="data-val" id="metric-q-cost">--</div></div><div class="data-metric"><div class="data-lbl">Estimated Time</div><div class="data-val" id="metric-q-time" style="font-size: 1.5rem;">--</div></div></div>
                         </div>
+
                         <h2 style="text-align: center; color: var(--accent-color); margin-bottom: 2rem;">🚀 Speedup Factor ≈ <span id="metric-speedup">--</span></h2>
+
                         <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; margin-bottom: 2rem;">
                             <div class="glass-card" style="padding: 10px;"><div id="cost-bar-chart" style="width: 100%; height: 350px;"></div></div>
                             <div class="glass-card" style="padding: 10px;">
@@ -149,9 +152,14 @@
                                 <div id="cost-scaling-chart" style="width: 100%; height: 320px;"></div>
                             </div>
                         </div>
+
                         <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
                             <div class="glass-card" style="padding: 10px;"><div id="cost-log-chart" style="width: 100%; height: 350px;"></div></div>
-                            <div class="glass-card"><div class="card-header">🏭 Real-World Perspective</div><p style="font-size: 1.05rem; line-height: 1.6;">Average cost to bring a drug to market $\approx$ <strong>$2,000,000,000.</strong></p><p style="font-size: 0.95rem; line-height: 1.6; color: var(--subtext-color);" id="real-world-text"></p></div>
+                            <div class="glass-card">
+                                <div class="card-header">🏭 Real-World Perspective</div>
+                                <p style="font-size: 1.05rem; line-height: 1.6;">Average cost to bring a drug to market ≈ <strong>$2,000,000,000.</strong></p>
+                                <p style="font-size: 0.95rem; line-height: 1.6; color: var(--subtext-color);" id="real-world-text"></p>
+                            </div>
                         </div>
                     </div>
 <div id="Algorithm-Race" class="module-view" style="display:none;">
