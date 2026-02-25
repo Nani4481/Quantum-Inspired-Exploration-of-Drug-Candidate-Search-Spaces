@@ -127,6 +127,45 @@ input[type=range] { width: 100%; accent-color: var(--accent-color); }
 .module-btn:hover { background: var(--theme-color); color: #ffffff; }
 
 .log-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; border-left: 4px solid var(--accent-color); }
+/* ========================================= */
+/* DATA METRICS (Physical Profile & Cost Sim)*/
+/* ========================================= */
+.data-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center; /* Forces vertical centering */
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+    gap: 15px; /* Adds a clean buffer between label and number */
+}
+
+.data-metric:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.data-metric:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.data-lbl {
+    color: var(--subtext-color);
+    font-size: 0.8rem; /* Slightly smaller to fit cleanly */
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+}
+
+.data-val {
+    color: var(--text-color);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-align: right; /* Forces numbers to perfectly align to the right edge */
+    white-space: nowrap; /* CRITICAL: Prevents numbers and units from splitting onto two lines */
+}
 .log-title { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent-color); margin-bottom: 0.4rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;}
 .log-data { font-size: 1.05rem; color: var(--text-color); font-weight: 600; line-height: 1.4;}
 .badge-pass { display:inline-block; padding:4px 10px; border-radius:6px; background:var(--accent-light); color:var(--accent-color); font-size:12px; font-weight: 700; border:1px solid var(--accent-color); text-align: center; font-family: 'JetBrains Mono'; }
