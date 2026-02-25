@@ -221,40 +221,98 @@ function animateCostCurve() {
     }, 40);
 }
 
+// ==========================================
+// 2. ALGORITHM RACE
+// ==========================================
+function logToTerminal(termId, text) {
+    const term = document.getElementById(termId);
+    if (!term) return;
+    const line = document.createElement('div');
+    line.className = 'term-line';
+    line.innerText = `> ${text}`;
+    term.appendChild(line);
+    // Keep only the last 5 lines to simulate a scrolling terminal
+    while(term.children.length > 5) {
+        term.removeChild(term.firstChild);
+    }
+}
+
 function initRaceView() {
-    document.getElementById('race-classic-text').innerText = `0 / ${globalSimData.N.toLocaleString()}`;
-    document.getElementById('race-quantum-text').innerText = `0 / ${globalSimData.opt_steps}`;
+    document.getElementById('race-classic-text').innerText = `0 / ${globalSimData ? globalSimData.N.toLocaleString() : '--'}`;
+    document.getElementById('race-quantum-text').innerText = `0.00%`;
     document.getElementById('race-classic-fill').style.width = '0%';
     document.getElementById('race-quantum-fill').style.width = '0%';
-    document.getElementById('race-classic-cost').innerText = "$0.00";
-    document.getElementById('race-quantum-cost').innerText = "$0.00";
     document.getElementById('race-winner-text').style.display = 'none';
+
+    document.getElementById('term-classic').innerHTML = '<div class="term-line">> System Ready. Awaiting execution command.</div>';
+    document.getElementById('term-quantum').innerHTML = '<div class="term-line">> System Ready. Awaiting execution command.</div>';
 }
 
 function startRace() {
     if(!globalSimData) return;
     const btn = document.getElementById('start-race-btn');
-    btn.disabled = true; initRaceView();
-    const N = globalSimData.N; const steps = globalSimData.opt_steps;
+    btn.disabled = true;
+    initRaceView();
 
-    let qCount = 0;
-    const qInterval = setInterval(() => {
-        qCount++; const pct = (qCount / steps) * 100;
-        document.getElementById('race-quantum-fill').style.width = `${pct}%`;
-        document.getElementById('race-quantum-text').innerText = `${qCount} / ${steps}`;
-        document.getElementById('race-quantum-cost').innerText = "$" + (qCount * 0.05).toFixed(2);
-        if(qCount >= steps) { clearInterval(qInterval); document.getElementById('race-winner-text').style.display = 'block'; }
-    }, 1000 / steps);
+    const N = globalSimData.N;
+    const steps = globalSimData.opt_steps;
 
-    let cCount = 0;
-    const cInterval = setInterval(() => {
-        cCount += Math.floor(N / 80); if(cCount > N) cCount = N;
-        const pct = (cCount / N) * 100;
-        document.getElementById('race-classic-fill').style.width = `${pct}%`;
-        document.getElementById('race-classic-text').innerText = `${cCount.toLocaleString()} / ${N.toLocaleString()}`;
-        document.getElementById('race-classic-cost').innerText = "$" + (cCount * 0.01).toFixed(2);
-        if(cCount >= N) { clearInterval(cInterval); btn.disabled = false; }
-    }, 100);
+    let qCount = 0; let cCount = 0;
+
+    logToTerminal('term-classic', `Allocating linear array for ${N} variables...`);
+    logToTerminal('term-quantum', `Initializing ${globalSimData.num_qubits} Qubits...`);
+
+    // 🚀 QUANTUM RACE LOGIC
+    setTimeout(() => {
+        logToTerminal('term-quantum', 'Applying Hadamard (H) gates to all Qubits...');
+        const initProb = (1 / N) * 100;
+        document.getElementById('race-quantum-text').innerText = `${initProb.toFixed(4)}%`;
+        document.getElementById('race-quantum-fill').style.width = `5%`;
+
+        const qInterval = setInterval(() => {
+            qCount++;
+            const pct = Math.min((qCount / steps) * 100, 100);
+
+            // Mathematically emulate exponential probability growth
+            let currentProb = initProb + (Math.pow(qCount/steps, 2) * (100 - initProb));
+            if (qCount >= steps) currentProb = 100.00;
+
+            document.getElementById('race-quantum-fill').style.width = `${pct}%`;
+            document.getElementById('race-quantum-text').innerText = `${currentProb.toFixed(2)}%`;
+
+            logToTerminal('term-quantum', `Iteration ${qCount}: Diagonal Oracle Phase-Flip applied.`);
+            setTimeout(() => { logToTerminal('term-quantum', `Iteration ${qCount}: Grover Diffuser (Mean Inversion).`); }, 350);
+
+            if(qCount >= steps) {
+                clearInterval(qInterval);
+                setTimeout(() => { logToTerminal('term-quantum', 'SUCCESS: Wavefunction Collapsed. Target Extracted.'); }, 700);
+                document.getElementById('race-winner-text').style.display = 'block';
+            }
+        }, 900); // Slower ticks to show the complex math happening
+    }, 1000);
+
+    // 🐢 CLASSICAL RACE LOGIC
+    setTimeout(() => {
+        logToTerminal('term-classic', 'Commencing linear O(N) sequential traversal...');
+        const scanSpeed = Math.max(Math.floor(N / 40), 1); // Ensures classical takes significantly longer
+
+        const cInterval = setInterval(() => {
+            cCount += scanSpeed;
+            if(cCount > N) cCount = N;
+
+            const pct = (cCount / N) * 100;
+            document.getElementById('race-classic-fill').style.width = `${pct}%`;
+            document.getElementById('race-classic-text').innerText = `${cCount.toLocaleString()} / ${N.toLocaleString()}`;
+
+            logToTerminal('term-classic', `Evaluated indices ${cCount - scanSpeed} to ${cCount}... Target not found.`);
+
+            if(cCount >= N) {
+                clearInterval(cInterval);
+                logToTerminal('term-classic', 'Traversal complete. Target located at end of array.');
+                btn.disabled = false;
+            }
+        }, 300); // Fast repetitive ticks to simulate brute-force loops
+    }, 1000);
 }
 
 function renderHilbertSpace() {

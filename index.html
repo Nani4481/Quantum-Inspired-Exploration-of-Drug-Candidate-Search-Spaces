@@ -154,31 +154,44 @@
                             <div class="glass-card"><div class="card-header">🏭 Real-World Perspective</div><p style="font-size: 1.05rem; line-height: 1.6;">Average cost to bring a drug to market $\approx$ <strong>$2,000,000,000.</strong></p><p style="font-size: 0.95rem; line-height: 1.6; color: var(--subtext-color);" id="real-world-text"></p></div>
                         </div>
                     </div>
-                    <div id="Algorithm-Race" class="module-view" style="display:none;">
+<div id="Algorithm-Race" class="module-view" style="display:none;">
                         <div class="glass-card" style="margin-bottom: 2rem; border-color: var(--accent-color); background: rgba(59, 130, 246, 0.05);">
-                        <p style="margin:0; font-size: 0.95rem; line-height: 1.6;"><strong>The Bottleneck of Classical Discovery:</strong> Classical computers must evaluate molecules one-by-one in a linear sequence <i>O(N)</i>. For massive databases, this costs millions of dollars in compute time. A Quantum computer places the entire database into a superposition and uses the Oracle to filter them <em>simultaneously</em> in <i>O(√N)</i> iterations. Watch the difference live below.</p>                        </div>
+                            <p style="margin:0; font-size: 0.95rem; line-height: 1.6;"><strong>The Algorithmic Bottleneck:</strong> This module strips away the economics and focuses purely on the math. Watch the live execution logs below. The classical computer must physically check every molecule sequentially. The Quantum engine places all molecules in superposition and manipulates the probabilities, forcing wrong answers to cancel out via Destructive Interference.</p>
+                        </div>
+
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-                            <div class="glass-card" style="border-color: #ef4444; position: relative;">
-                                <div class="card-header" style="color: #ef4444; border-bottom-color: rgba(239,68,68,0.3);">🐢 Classical Supercomputer O(N)</div>
-                                <p style="font-size: 0.85rem; color: var(--subtext-color); margin-bottom: 20px;">Evaluating molecules sequentially one-by-one. High cost, slow execution.</p>
-                                <div class="race-bar-bg"><div id="race-classic-fill" class="race-bar-fill" style="background: #ef4444; width: 0%;"></div></div>
-                                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono'; font-size: 0.9rem;"><span>Items Scanned:</span><span id="race-classic-text" style="color: #ef4444; font-weight: bold;">0 / --</span></div>
-                                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono'; font-size: 0.8rem; color: var(--subtext-color);"><span>Est. Compute Cost:</span><span id="race-classic-cost">$0.00</span></div>
+                            <div class="glass-card" style="border-top: 4px solid #ef4444; display: flex; flex-direction: column;">
+                                <h3 style="color: #ef4444; margin-top: 0; margin-bottom: 1.5rem;">🐢 Classical Search <i>O(N)</i></h3>
+                                <div class="data-metric"><div class="data-lbl">Mechanism</div><div class="data-val" style="font-size: 0.9rem;">Sequential Filtering</div></div>
+                                <div class="data-metric"><div class="data-lbl">Concurrency</div><div class="data-val" style="font-size: 0.9rem;">1 item / compute cycle</div></div>
+
+                                <div class="race-bar-bg" style="height: 12px; border-radius: 6px; margin-top: 20px;"><div id="race-classic-fill" class="race-bar-fill" style="background: #ef4444; width: 0%;"></div></div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-family: 'JetBrains Mono'; font-size: 0.85rem; color: var(--subtext-color);"><span>Items Scanned:</span><span id="race-classic-text" style="color: #ef4444; font-weight: bold;">0 / --</span></div>
+
+                                <div class="race-terminal" id="term-classic" style="color: #ef4444;">
+                                    <div class="term-line">> System Ready. Awaiting execution command.</div>
+                                </div>
                             </div>
-                            <div class="glass-card" style="border-color: #10b981; position: relative;">
-                                <div class="card-header" style="color: #10b981; border-bottom-color: rgba(16,185,129,0.3);">🚀 Quantum Engine O(√N)</div>
-                                <p style="font-size: 0.85rem; color: var(--subtext-color); margin-bottom: 20px;">Global Oracle phase-flip across entire superposition simultaneously.</p>
-                                <div class="race-bar-bg"><div id="race-quantum-fill" class="race-bar-fill" style="background: #10b981; width: 0%;"></div></div>
-                                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono'; font-size: 0.9rem;"><span>Grover Amplifications:</span><span id="race-quantum-text" style="color: #10b981; font-weight: bold;">0 / --</span></div>
-                                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-family: 'JetBrains Mono'; font-size: 0.8rem; color: var(--subtext-color);"><span>Est. Compute Cost:</span><span id="race-quantum-cost">$0.00</span></div>
+
+                            <div class="glass-card" style="border-top: 4px solid #10b981; display: flex; flex-direction: column;">
+                                <h3 style="color: #10b981; margin-top: 0; margin-bottom: 1.5rem;">🚀 Quantum Engine <i>O(√N)</i></h3>
+                                <div class="data-metric"><div class="data-lbl">Mechanism</div><div class="data-val" style="font-size: 0.9rem;">Amplitude Amplification</div></div>
+                                <div class="data-metric"><div class="data-lbl">Concurrency</div><div class="data-val" style="font-size: 0.9rem;">All items simultaneously</div></div>
+
+                                <div class="race-bar-bg" style="height: 12px; border-radius: 6px; margin-top: 20px;"><div id="race-quantum-fill" class="race-bar-fill" style="background: #10b981; width: 0%;"></div></div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-family: 'JetBrains Mono'; font-size: 0.85rem; color: var(--subtext-color);"><span>Target Probability |Ψ|²:</span><span id="race-quantum-text" style="color: #10b981; font-weight: bold;">0.00%</span></div>
+
+                                <div class="race-terminal" id="term-quantum" style="color: #10b981;">
+                                    <div class="term-line">> System Ready. Awaiting execution command.</div>
+                                </div>
                             </div>
                         </div>
+
                         <div style="text-align: center; margin-top: 2rem;">
-                            <button class="btn-primary" id="start-race-btn" onclick="startRace()" style="padding: 1.2rem 3rem; font-size: 1.1rem; width: auto; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">🏁 START SIMULATION RACE</button>
-                            <h3 id="race-winner-text" style="margin-top: 20px; color: #10b981; display: none;">Quantum Engine extracted the target in a fraction of the time!</h3>
+                            <button class="btn-primary" id="start-race-btn" onclick="startRace()" style="padding: 1.2rem 3rem; font-size: 1.1rem; width: auto; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">🏁 START EXECUTION RACE</button>
+                            <h3 id="race-winner-text" style="margin-top: 20px; color: #10b981; display: none;">🏆 Quantum Wavefunction Collapsed! Target extracted while Classical is still searching.</h3>
                         </div>
                     </div>
-
                     <div id="Hilbert-Space" class="module-view" style="display:none;">
                         <div class="glass-card" style="margin-bottom: 1.5rem; border-color: var(--accent-color); background: rgba(59, 130, 246, 0.05);">
                             <p style="margin:0; font-size: 0.9rem; line-height: 1.5;"><strong>Quantum Implementation Details:</strong> This pure simulation utilizes Qiskit's `Statevector` to model a physical system, structuring a complete Hilbert space. The Oracle is actively generated as a diagonal unitary matrix that precisely executes a -1 phase-shift exclusively on the valid target indices before diffusion.</p>
