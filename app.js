@@ -2,6 +2,48 @@ const API_URL = "http://127.0.0.1:8000/api";
 let globalSimData = null;
 let currentActivePage = "Home";
 let costAnimationInterval = null;
+let lastLoadedSmiles = null;
+let studentModeActive = false;
+
+// ==========================================
+// 🎓 TOUR GUIDE CONFIGURATION
+// ==========================================
+const tourData = {
+    "Home": [
+        { target: null, title: "Welcome Researcher!", text: "I am your interactive tour guide. Drug discovery is like finding a needle in a cosmic haystack. Let's learn how Quantum Computing speeds this up." },
+        { target: "tour-home-grid", title: "The Sandbox", text: "We have built educational modules. 👉 <strong>Action:</strong> Click on the <strong>🏎️ Algorithm Race</strong> module in the grid." }
+    ],
+    "Algorithm Race": [
+        { target: null, title: "Linear vs Exponential", text: "<strong>Why is discovery slow?</strong><br>Classical computers test one molecule at a time sequentially ($O(N)$). Quantum computers use superposition to test the entire database simultaneously ($O(\\sqrt{N})$)." },
+        { target: "start-race-btn", title: "Run the Race", text: "👉 <strong>Action:</strong> Click <strong>Start Simulation Race</strong> to watch the visual bottleneck in real-time." }
+    ],
+    "Cost Simulator": [
+        { target: null, title: "Economics of R&D", text: "<strong>Why is discovery expensive?</strong><br>Testing millions of molecules classically requires massive supercomputer time and funding." },
+        { target: "cost-n", title: "Simulate Cost", text: "👉 <strong>Action:</strong> Change the <em>Number of compounds</em> box to <strong>10,000,000</strong> to see how standard pharmaceutical costs spiral out of control." }
+    ],
+    "Hilbert Space": [
+        { target: "oracle-sidebar", title: "The Quantum Oracle", text: "This sidebar is our Quantum Oracle. We use it to map the physical properties a perfect drug should have." },
+        { target: "tour-qed", title: "QED Score", text: "<strong>Quantitative Estimate of Druglikeness.</strong> A score closer to 1.0 means it looks like a real drug. 👉 <strong>Action:</strong> Try sliding it to 0.70." },
+        { target: "tour-mw", title: "Molecular Weight", text: "<strong>Lipinski's Rule:</strong> Heavier molecules can't cross human cell walls. We cap it at 500 Daltons to ensure it's absorbable." },
+        { target: "tour-logp", title: "LogP (Lipophilicity)", text: "This measures fat solubility. Too high, and it gets stuck in human fat tissue. Too low, and it cannot cross membranes." },
+        { target: "tour-noise", title: "Decoherence Noise", text: "Real quantum hardware is noisy! Try adding 0.05 noise to see how error affects probability." },
+        { target: "run-btn", title: "Execute Math", text: "👉 <strong>Action:</strong> Click <strong>Apply & Run</strong> to execute Grover's algorithm and isolate the targets!" }
+    ],
+    "Top Candidate": [
+        { target: null, title: "Wave Collapse!", text: "The quantum probability collapsed into our best match! Look at the Physical Profile and 3D structure." },
+        { target: "tc-lipinski-badges", title: "Lipinski Compliance", text: "Christopher Lipinski proved that oral drugs must obey strict rules. Our Oracle enforced this automatically!" }
+    ],
+    "Lipinski Filter": [
+        { target: null, title: "The Rule of 5 Validation", text: "Here we batch-process our dataset against Lipinski's classical guardrails. Any molecule that fails more than 1 rule is flagged as Non-Compliant (toxic or unabsorbable)." }
+    ],
+    "Molecule Designer": [
+        { target: "ketcher-frame", title: "Be the Chemist!", text: "Our Top Hit was injected into the canvas. Try drawing a new atom (like Oxygen 'O') onto the structure." },
+        { target: "designer-smi", title: "Check Alignment", text: "👉 <strong>Action:</strong> Click <strong>Run Diagnostics</strong> and check if your new creation stays inside our active Oracle bounds on the left!" }
+    ]
+};
+
+let currentTourStep = 0;
+let currentTourSequence = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
     fetch3Dmol("CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5", "home-3dmol");
@@ -52,6 +94,8 @@ function navigate(pageId) {
         if(targetDiv) targetDiv.style.display = 'block';
         setTimeout(() => { renderSpecificView(pageId); }, 150);
     }
+
+    startTourSequence(pageId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -76,6 +120,8 @@ async function runQuantumSimulation() {
         const res = await fetch(`${API_URL}/simulate`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) });
         if(!res.ok) throw new Error("Backend Crash");
         globalSimData = await res.json();
+
+        lastLoadedSmiles = null;
 
         const hdrStr = `SEARCH SPACE: <span style="color:var(--text-color); font-weight:bold;">${globalSimData.N.toLocaleString()}</span> &nbsp;|&nbsp; ORACLE TARGETS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.targets_count.toLocaleString()}</span> &nbsp;|&nbsp; ALLOCATED QUBITS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.num_qubits}</span>`;
         if(statusHdr) statusHdr.innerHTML = hdrStr;
@@ -108,20 +154,18 @@ function renderSpecificView(pageId) {
     if(pageId === 'Lipinski Filter') renderLipinskiFilter();
     if(pageId === 'Algorithm Race') initRaceView();
     if(pageId === 'Cost Simulator') renderCostSimulator(false);
+    if(pageId === 'Molecule Designer') renderMoleculeDesigner();
 }
 
 function renderCostSimulator(animate = false) {
     const l = getLayoutProps();
-
     let N = parseInt(document.getElementById('cost-n').value) || 1000000;
     let costPer = parseFloat(document.getElementById('cost-per').value) || 10;
     let timePer = parseFloat(document.getElementById('cost-time').value) || 1;
 
-    let cCost = N * costPer;
-    let cTime = N * timePer;
+    let cCost = N * costPer; let cTime = N * timePer;
     let qEst = Math.floor(Math.sqrt(N));
-    let qCost = qEst * costPer;
-    let qTime = qEst * timePer;
+    let qCost = qEst * costPer; let qTime = qEst * timePer;
     let speedup = qTime > 0 ? cTime / qTime : 0;
 
     document.getElementById('metric-c-cost').innerText = `$${cCost.toLocaleString()}`;
@@ -129,58 +173,32 @@ function renderCostSimulator(animate = false) {
     document.getElementById('metric-q-cost').innerText = `$${qCost.toLocaleString()}`;
     document.getElementById('metric-q-time').innerText = `${qTime.toLocaleString()} sec`;
     document.getElementById('metric-speedup').innerText = `${speedup.toLocaleString(undefined, {maximumFractionDigits: 0})}x`;
-
     document.getElementById('real-world-text').innerHTML = `Your classical simulation at N=${N.toLocaleString()} already costs <strong>$${cCost.toLocaleString()}</strong>, showing how early-stage screening contributes significantly to pharmaceutical R&D expenses. Quantum-inspired tools reduce this to $${qCost.toLocaleString()}.`;
 
-    Plotly.newPlot('cost-bar-chart', [{
-        x: ["Classical", "Quantum-Inspired"], y: [cCost, qCost], type: 'bar',
-        text: [`$${cCost.toLocaleString()}`, `$${qCost.toLocaleString()}`], textposition: 'auto',
-        marker: { color: ['#ef4444', '#10b981'] }
-    }], { title: {text: 'Total Cost Comparison ($)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30} });
+    Plotly.newPlot('cost-bar-chart', [{ x: ["Classical", "Quantum-Inspired"], y: [cCost, qCost], type: 'bar', text: [`$${cCost.toLocaleString()}`, `$${qCost.toLocaleString()}`], textposition: 'auto', marker: { color: ['#ef4444', '#10b981'] } }], { title: {text: 'Total Cost Comparison ($)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30} });
 
-    let sizes = [];
-    let maxN = Math.max(N, 1000);
+    let sizes = []; let maxN = Math.max(N, 1000);
     for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
-    let cCurve = sizes.map(s => s);
-    let qCurve = sizes.map(s => Math.sqrt(s));
+    let cCurve = sizes.map(s => s); let qCurve = sizes.map(s => Math.sqrt(s));
 
-    Plotly.newPlot('cost-log-chart', [
-        { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
-        { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
-    ], { title: {text: 'Logarithmic View (Real Difference)', font: {size: 14}}, yaxis: {type: 'log'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30}, legend: {x: 0, y: 1} });
+    Plotly.newPlot('cost-log-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { title: {text: 'Logarithmic View (Real Difference)', font: {size: 14}}, yaxis: {type: 'log'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30}, legend: {x: 0, y: 1} });
 
-    if (!animate) {
-        Plotly.newPlot('cost-scaling-chart', [
-            { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
-            { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
-        ], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
-    }
+    if (!animate) { Plotly.newPlot('cost-scaling-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} }); }
 }
 
 function animateCostCurve() {
     if(costAnimationInterval) clearInterval(costAnimationInterval);
-
     let N = parseInt(document.getElementById('cost-n').value) || 1000000;
-    let sizes = [];
-    let maxN = Math.max(N, 1000);
+    let sizes = []; let maxN = Math.max(N, 1000);
     for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
-    let cCurve = sizes.map(s => s);
-    let qCurve = sizes.map(s => Math.sqrt(s));
+    let cCurve = sizes.map(s => s); let qCurve = sizes.map(s => Math.sqrt(s));
 
-    let step = 5;
-    const l = getLayoutProps();
-
-    Plotly.newPlot('cost-scaling-chart', [
-        { x: sizes.slice(0, step), y: cCurve.slice(0, step), mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} },
-        { x: sizes.slice(0, step), y: qCurve.slice(0, step), mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} }
-    ], { xaxis: {range: [0, maxN]}, yaxis: {range: [0, maxN]}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
+    let step = 5; const l = getLayoutProps();
+    Plotly.newPlot('cost-scaling-chart', [ { x: sizes.slice(0, step), y: cCurve.slice(0, step), mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes.slice(0, step), y: qCurve.slice(0, step), mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { xaxis: {range: [0, maxN]}, yaxis: {range: [0, maxN]}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
 
     costAnimationInterval = setInterval(() => {
         step += 2;
-        Plotly.update('cost-scaling-chart', {
-            x: [sizes.slice(0, step), sizes.slice(0, step)],
-            y: [cCurve.slice(0, step), qCurve.slice(0, step)]
-        });
+        Plotly.update('cost-scaling-chart', { x: [sizes.slice(0, step), sizes.slice(0, step)], y: [cCurve.slice(0, step), qCurve.slice(0, step)] });
         if(step >= sizes.length) clearInterval(costAnimationInterval);
     }, 40);
 }
@@ -200,58 +218,36 @@ function startRace() {
     const btn = document.getElementById('start-race-btn');
     btn.disabled = true;
     initRaceView();
-
-    const N = globalSimData.N;
-    const steps = globalSimData.opt_steps;
+    const N = globalSimData.N; const steps = globalSimData.opt_steps;
 
     let qCount = 0;
     const qInterval = setInterval(() => {
-        qCount++;
-        const pct = (qCount / steps) * 100;
+        qCount++; const pct = (qCount / steps) * 100;
         document.getElementById('race-quantum-fill').style.width = `${pct}%`;
         document.getElementById('race-quantum-text').innerText = `${qCount} / ${steps}`;
         document.getElementById('race-quantum-cost').innerText = "$" + (qCount * 0.05).toFixed(2);
-        if(qCount >= steps) {
-            clearInterval(qInterval);
-            document.getElementById('race-winner-text').style.display = 'block';
-        }
+        if(qCount >= steps) { clearInterval(qInterval); document.getElementById('race-winner-text').style.display = 'block'; }
     }, 1000 / steps);
 
     let cCount = 0;
     const cInterval = setInterval(() => {
-        cCount += Math.floor(N / 80);
-        if(cCount > N) cCount = N;
+        cCount += Math.floor(N / 80); if(cCount > N) cCount = N;
         const pct = (cCount / N) * 100;
         document.getElementById('race-classic-fill').style.width = `${pct}%`;
         document.getElementById('race-classic-text').innerText = `${cCount.toLocaleString()} / ${N.toLocaleString()}`;
         document.getElementById('race-classic-cost').innerText = "$" + (cCount * 0.01).toFixed(2);
-        if(cCount >= N) {
-            clearInterval(cInterval);
-            btn.disabled = false;
-        }
+        if(cCount >= N) { clearInterval(cInterval); btn.disabled = false; }
     }, 100);
 }
 
-// -------------------------------------------------------------------
-// THE FIX IS HERE: WebGL Precision and Color Scaling Safety Bounds
-// -------------------------------------------------------------------
 function renderHilbertSpace() {
     if(document.getElementById('Hilbert-Space').style.display === 'none') return;
     const data = globalSimData.display_df;
     const l = getLayoutProps();
-
     const probValues = data.map(d => d.Probability);
-    let minP = Math.min(...probValues);
-    let maxP = Math.max(...probValues);
-
-    // FIX: If the distribution is completely flat (0 targets), create a massive artificial safe gap
-    // to prevent the WebGL 32-bit floats from hitting a divide-by-zero precision crash.
-    let cminVal = minP;
-    let cmaxVal = maxP;
-    if ((maxP - minP) < 1e-5) {
-        cminVal = 0;
-        cmaxVal = maxP > 0 ? maxP * 3 : 1; // Creates a massive padding for math scaling
-    }
+    let minP = Math.min(...probValues); let maxP = Math.max(...probValues);
+    let cminVal = minP; let cmaxVal = maxP;
+    if ((maxP - minP) < 1e-5) { cminVal = 0; cmaxVal = maxP > 0 ? maxP * 3 : 1; }
 
     const sizes = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 14 : 5);
     const symbols = data.map(d => d.Classification === '★ MEASURED WAVE COLLAPSE' ? 'diamond' : 'circle');
@@ -261,30 +257,8 @@ function renderHilbertSpace() {
     Plotly.newPlot('hilbert-plot', [{
         x: data.map(d=>d.MW), y: data.map(d=>d.LogP), z: probValues, text: data.map(d=>d.Name),
         mode: 'markers', type: 'scatter3d',
-        marker: {
-            size: sizes,
-            color: probValues,
-            cmin: cminVal, // Applies our safe minimum
-            cmax: cmaxVal, // Applies our safe maximum
-            colorscale: [[0, '#1e293b'], [0.1, '#3b82f6'], [0.5, '#a855f7'], [1.0, '#f59e0b']],
-            showscale: true,
-            colorbar: { title: '|Ψ|² Prob', thickness: 15, tickfont: {color: l.fontCol}, titlefont: {color: l.fontCol, size: 12} },
-            opacity: 0.9,
-            symbol: symbols,
-            line: { color: lineColors, width: lineWidths }
-        }
-    }], {
-        paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol },
-        scene: {
-            xaxis: {title: 'Mass (Da)'},
-            yaxis: {title: 'LogP'},
-            zaxis: {
-                title: '|Ψ|² Probability',
-                range: [0, maxP > 0 ? maxP * 1.5 : 1] // Forces the graph floor to 0 so flat states sit properly
-            }
-        },
-        margin: {l:0,r:0,t:0,b:0}
-    });
+        marker: { size: sizes, color: probValues, cmin: cminVal, cmax: cmaxVal, colorscale: [[0, '#1e293b'], [0.1, '#3b82f6'], [0.5, '#a855f7'], [1.0, '#f59e0b']], showscale: true, colorbar: { title: '|Ψ|² Prob', thickness: 15, tickfont: {color: l.fontCol}, titlefont: {color: l.fontCol, size: 12} }, opacity: 0.9, symbol: symbols, line: { color: lineColors, width: lineWidths } }
+    }], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, scene: { xaxis: {title: 'Mass (Da)'}, yaxis: {title: 'LogP'}, zaxis: { title: '|Ψ|² Probability', range: [0, maxP > 0 ? maxP * 1.5 : 1] } }, margin: {l:0,r:0,t:0,b:0} });
 
     let tableHTML = `<table class="custom-table"><tr><th>Name</th><th>Classification</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>HBD</th><th>HBA</th><th>Probability</th></tr>`;
     data.slice(0, 20).forEach(d => { tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.QED.toFixed(3)}</td><td>${d.TPSA.toFixed(1)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`; });
@@ -339,7 +313,6 @@ function renderAnalytics() {
     const xSteps = Array.from({length: trace.length}, (_, i) => i);
 
     Plotly.newPlot('grover-line', [{ x: xSteps, y: trace, type: 'scatter', mode: 'lines+markers', line:{color:'#3b82f6', width: 3}, marker:{size:8} }], { title: {text: 'Amplitude Amplification Trace (Qiskit)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, xaxis:{title:'Grover Iteration', tickmode:'linear'}, yaxis:{title:'|Ψ|² Probability'}, margin:{l:50,r:20,t:40,b:40} });
-
     const top50 = globalSimData.display_df.slice(0,50);
     Plotly.newPlot('grover-bar', [{ x: top50.map((_,i)=>i), y: top50.map(d=>d.Probability), type: 'bar', marker:{color: top50.map(d=>d.Classification==='Suppressed Noise'? '#475569':'#3b82f6')} }], { title: {text:'Top 50 Qubit States', font: {size: 14}}, xaxis:{title:'State Rank'}, yaxis:{title:'|Ψ|² Probability'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font:{color:l.fontCol}, margin:{l:50,r:20,t:40,b:40} });
 
@@ -362,8 +335,34 @@ async function runSimilarity() {
     fetch3Dmol(data.matches[0].SMILES, 'sim-3dmol');
 }
 
+function renderMoleculeDesigner() {
+    if(document.getElementById('Molecule-Designer').style.display === 'none') return;
+    if(!globalSimData || !globalSimData.top_hit || !globalSimData.top_hit.SMILES) return;
+    const targetSmiles = globalSimData.top_hit.SMILES;
+
+    if (lastLoadedSmiles !== targetSmiles && targetSmiles !== "C") {
+        const iframe = document.getElementById('ketcher-frame');
+        if (iframe && iframe.contentWindow && iframe.contentWindow.ketcher) {
+            iframe.contentWindow.ketcher.setMolecule(targetSmiles).then(() => {
+                lastLoadedSmiles = targetSmiles;
+                document.getElementById('designer-smi').value = targetSmiles;
+                runDesignerDiagnostics();
+            }).catch(e => console.log("Ketcher initialization waiting..."));
+        } else {
+            setTimeout(renderMoleculeDesigner, 500);
+        }
+    }
+}
+
 async function runDesignerDiagnostics() {
-    const smi = document.getElementById('designer-smi').value;
+    let smi = document.getElementById('designer-smi').value;
+    const iframe = document.getElementById('ketcher-frame');
+    if (iframe && iframe.contentWindow && iframe.contentWindow.ketcher) {
+        try {
+            const kSmiles = await iframe.contentWindow.ketcher.getSmiles();
+            if (kSmiles) { smi = kSmiles; document.getElementById('designer-smi').value = smi; }
+        } catch(e) { console.log("Fetching Ketcher SMILES..."); }
+    }
     if(!smi) return;
     try {
         const res = await fetch(`${API_URL}/molecule-props`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({smiles: smi}) });
@@ -380,11 +379,9 @@ async function runDesignerDiagnostics() {
             <div style='display: flex; justify-content: space-between; margin-bottom: 1.5rem;'><div class='data-lbl'>HB Acceptors</div><div style='font-family: JetBrains Mono; font-weight: 700; font-size: 1.1rem;'>${data.props.HBA}</div></div>
             <div class='card-header' style='font-size: 0.75rem; border:none; margin-bottom: 5px;'>LIPINSKI RULE OF 5</div>
         `;
-
         for (const [rule, pass] of Object.entries(data.checks)) { html += `<div class="${pass ? 'badge-pass' : 'badge-fail'}" style="margin-bottom: 5px;">${pass?'PASS':'FAIL'} - ${rule}</div>`; }
         html += `<div class='card-header' style='font-size: 0.75rem; border:none; margin-top: 1.5rem; margin-bottom: 5px;'>ORACLE ALIGNMENT</div>`;
         html += `<div class="${inOracle ? 'badge-pass' : 'badge-fail'}">${inOracle?'✓ IN ACTIVE BOUNDS':'✗ OUTSIDE ACTIVE BOUNDS'}</div>`;
-
         document.getElementById('designer-results').innerHTML = html;
         fetch3Dmol(smi, 'designer-3dmol');
     } catch { document.getElementById('designer-results').innerHTML = `<div class="badge-fail">Invalid SMILES Structure</div>`; }
@@ -394,10 +391,8 @@ async function runQVisualizer() {
     const statBox = document.getElementById('qv-status-box');
     const stat = document.getElementById('qv-status');
     statBox.style.display = 'block';
-
     const N = 64; let amps = Array(N).fill(1/Math.sqrt(N));
-    const targetIdx = 32;
-    const l = getLayoutProps();
+    const targetIdx = 32; const l = getLayoutProps();
     const xLabels = Array.from({length: N}, (_, i) => i === targetIdx ? "ASPIRIN" : `SYN-${i.toString().padStart(3, '0')}`);
 
     function plotIt(ydata, title, yTitle="Probability Amplitude", yRange=[-0.4, 0.8]) {
@@ -437,4 +432,81 @@ async function fetch3Dmol(smiles, elementId) {
         viewer.setStyle({}, {stick:{colorscheme:'blueWhiteCarbon', radius:0.2}});
         viewer.zoomTo(); viewer.zoom(1.8); viewer.spin(true); viewer.render();
     } catch(err) { console.error("3Dmol Error"); }
+}
+
+// ==========================================
+// 🎓 STUDENT / EARLY RESEARCHER TOUR GUIDE
+// ==========================================
+function toggleStudentMode() {
+    studentModeActive = !studentModeActive;
+    const btn = document.getElementById('student-mode-toggle');
+    const assistant = document.getElementById('student-assistant');
+
+    if(studentModeActive) {
+        btn.innerText = '🎓 Mode: Student';
+        btn.style.background = 'var(--accent2-color)';
+        btn.style.color = '#fff';
+        assistant.style.display = 'block';
+        assistant.animate([{opacity: 0, transform: 'translateY(20px)'}, {opacity: 1, transform: 'translateY(0)'}], {duration: 300, fill: 'forwards'});
+        startTourSequence(currentActivePage);
+    } else {
+        btn.innerText = '🎓 Mode: Experienced';
+        btn.style.background = 'transparent';
+        btn.style.color = 'var(--accent2-color)';
+        assistant.style.display = 'none';
+        clearAllHighlights();
+    }
+}
+
+function startTourSequence(pageId) {
+    if(!studentModeActive) return;
+
+    // Default fallback if page isn't in tourData
+    currentTourSequence = tourData[pageId] || [{target: null, title: "Explore freely", text: "Use the navigation above to select a module."}];
+    currentTourStep = 0;
+    renderTourStep();
+}
+
+function renderTourStep() {
+    if(!studentModeActive) return;
+    clearAllHighlights();
+
+    const stepInfo = currentTourSequence[currentTourStep];
+    const textEl = document.getElementById('assistant-text');
+    const titleEl = document.getElementById('tour-title');
+    const progressEl = document.getElementById('tour-progress');
+
+    // Add glowing highlight if a target is defined
+    if(stepInfo.target) {
+        const targetEl = document.getElementById(stepInfo.target);
+        if(targetEl) targetEl.classList.add('student-focus');
+    }
+
+    textEl.style.opacity = 0;
+    setTimeout(() => {
+        titleEl.innerText = stepInfo.title;
+        textEl.innerHTML = stepInfo.text;
+        progressEl.innerText = `${currentTourStep + 1}/${currentTourSequence.length}`;
+        textEl.style.opacity = 1;
+        textEl.style.transition = "opacity 0.3s";
+    }, 150);
+}
+
+function tourNext() {
+    if (currentTourStep < currentTourSequence.length - 1) {
+        currentTourStep++;
+        renderTourStep();
+    }
+}
+
+function tourPrev() {
+    if (currentTourStep > 0) {
+        currentTourStep--;
+        renderTourStep();
+    }
+}
+
+function clearAllHighlights() {
+    // Remove glow from all possible targets
+    document.querySelectorAll('.student-focus').forEach(el => el.classList.remove('student-focus'));
 }

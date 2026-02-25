@@ -8,7 +8,6 @@ import os
 import warnings
 import uvicorn
 
-# Suppress warnings for cleaner terminal output
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from rdkit import Chem
@@ -20,7 +19,6 @@ from qiskit.quantum_info import Statevector
 
 app = FastAPI(title="Q-DISCOVER Enterprise Backend")
 
-# Allow the frontend to talk to this backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,8 +59,7 @@ def load_data():
 
     if os.path.exists(data_file):
         df_real = pd.read_csv(data_file)
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_real], ignore_index=True).drop_duplicates(
-            subset=['SMILES']).reset_index(drop=True)
+        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_real], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
         print(f"✅ Loaded {len(GLOBAL_DF)} molecules from local cache.")
         return
 
@@ -83,13 +80,11 @@ def load_data():
                         'RotBonds': rdMolDescriptors.CalcNumRotatableBonds(mol),
                         'Rings': rdMolDescriptors.CalcNumRings(mol),
                     })
-                except:
-                    continue
+                except: continue
         df_fetched = pd.DataFrame(real_data)
         df_fetched.to_csv(data_file, index=False)
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_fetched], ignore_index=True).drop_duplicates(
-            subset=['SMILES']).reset_index(drop=True)
-        print(f"✅ Successfully downloaded and generated {len(GLOBAL_DF)} molecules.")
+        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_fetched], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
+        print(f"✅ Successfully downloaded {len(GLOBAL_DF)} molecules.")
     except Exception as e:
         print(f"⚠️ AWS Download failed ({e}). Generating synthetic vector space...")
         real_data = []
@@ -102,8 +97,7 @@ def load_data():
                 'HBD': int(np.random.poisson(2)), 'HBA': int(np.random.poisson(4)),
                 'RotBonds': int(np.random.poisson(5)), 'Rings': int(np.random.poisson(2)),
             })
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), pd.DataFrame(real_data)], ignore_index=True).drop_duplicates(
-            subset=['SMILES']).reset_index(drop=True)
+        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), pd.DataFrame(real_data)], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
 
 class OracleConfig(BaseModel):
     t_qed: float
