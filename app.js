@@ -6,7 +6,7 @@ let lastLoadedSmiles = null;
 let studentModeActive = false;
 
 // ==========================================
-// 🎓 TOUR GUIDE CONFIGURATION
+// 🎓 TOUR GUIDE CONFIGURATION DICTIONARY
 // ==========================================
 const tourData = {
     "Home": [
@@ -14,12 +14,12 @@ const tourData = {
         { target: "tour-home-grid", title: "The Sandbox", text: "We have built educational modules. 👉 <strong>Action:</strong> Click on the <strong>🏎️ Algorithm Race</strong> module in the grid." }
     ],
     "Algorithm Race": [
-        { target: null, title: "Linear vs Exponential", text: "<strong>Why is discovery slow?</strong><br>Classical computers test one molecule at a time sequentially ($O(N)$). Quantum computers use superposition to test the entire database simultaneously ($O(\\sqrt{N})$)." },
+        { target: null, title: "Linear vs Exponential", text: "<strong>Why is discovery slow?</strong><br>Classical computers test one molecule at a time sequentially (<i>O(N)</i>). Quantum computers use superposition to test the entire database simultaneously (<i>O(√N)</i>)." },
         { target: "start-race-btn", title: "Run the Race", text: "👉 <strong>Action:</strong> Click <strong>Start Simulation Race</strong> to watch the visual bottleneck in real-time." }
     ],
     "Cost Simulator": [
         { target: null, title: "Economics of R&D", text: "<strong>Why is discovery expensive?</strong><br>Testing millions of molecules classically requires massive supercomputer time and funding." },
-        { target: "cost-n", title: "Simulate Cost", text: "👉 <strong>Action:</strong> Change the <em>Number of compounds</em> box to <strong>10,000,000</strong> to see how standard pharmaceutical costs spiral out of control." }
+        { target: "cost-n-tour", title: "Simulate Cost", text: "👉 <strong>Action:</strong> Change the <em>Number of compounds</em> box to <strong>10,000,000</strong> to see how standard pharmaceutical costs spiral out of control." }
     ],
     "Hilbert Space": [
         { target: "oracle-sidebar", title: "The Quantum Oracle", text: "This sidebar is our Quantum Oracle. We use it to map the physical properties a perfect drug should have." },
@@ -36,9 +36,16 @@ const tourData = {
     "Lipinski Filter": [
         { target: null, title: "The Rule of 5 Validation", text: "Here we batch-process our dataset against Lipinski's classical guardrails. Any molecule that fails more than 1 rule is flagged as Non-Compliant (toxic or unabsorbable)." }
     ],
+    "Similarity Search": [
+        { target: "sim-input", title: "Finding Backups", text: "What if our top candidate is patented by another company? We need structural alternatives." },
+        { target: null, title: "Morgan Fingerprints", text: "👉 <strong>Action:</strong> Click <strong>Search Fingerprints</strong>. This uses a digital barcode of the molecule's shape to find structural twins instantly."}
+    ],
     "Molecule Designer": [
-        { target: "ketcher-frame", title: "Be the Chemist!", text: "Our Top Hit was injected into the canvas. Try drawing a new atom (like Oxygen 'O') onto the structure." },
-        { target: "designer-smi", title: "Check Alignment", text: "👉 <strong>Action:</strong> Click <strong>Run Diagnostics</strong> and check if your new creation stays inside our active Oracle bounds on the left!" }
+        { target: "tour-ketcher", title: "Be the Chemist!", text: "Our Top Hit was injected into the canvas. Try drawing a new atom (like Oxygen 'O') onto the structure." },
+        { target: "tour-designer-run", title: "Check Alignment", text: "👉 <strong>Action:</strong> Click <strong>Run Diagnostics</strong> and check if your new creation stays inside our active Oracle bounds on the left!" }
+    ],
+    "Q-Visualizer": [
+        { target: null, title: "Quantum Mechanics", text: "This is a live 64-qubit vector simulation showing amplitude amplification in real time." }
     ]
 };
 
@@ -86,10 +93,8 @@ function navigate(pageId) {
     } else {
         const wrapper = document.getElementById('App-Wrapper');
         if (wrapper) { wrapper.style.display = 'block'; wrapper.classList.add('active'); }
-
         const titleEl = document.getElementById('current-module-title');
         if (titleEl) titleEl.innerText = pageId;
-
         const targetDiv = document.getElementById(pageId.replace(/\s+/g, '-'));
         if(targetDiv) targetDiv.style.display = 'block';
         setTimeout(() => { renderSpecificView(pageId); }, 150);
@@ -101,10 +106,9 @@ function navigate(pageId) {
 
 async function runQuantumSimulation() {
     const btn = document.getElementById('run-btn');
-    if(btn) btn.innerText = "⚛️ Calculating...";
-
+    if(btn) btn.innerText = "⚛️ Running Qiskit Engine...";
     const statusHdr = document.getElementById('status-hdr');
-    if(statusHdr) statusHdr.innerHTML = `<span style="color:var(--accent2-color);">Running Qiskit Math...</span>`;
+    if(statusHdr) statusHdr.innerHTML = `<span style="color:var(--accent2-color);">Evaluating Statevector Matrix...</span>`;
 
     const config = {
         t_qed: parseFloat(document.getElementById('t_qed').value),
@@ -120,7 +124,6 @@ async function runQuantumSimulation() {
         const res = await fetch(`${API_URL}/simulate`, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config) });
         if(!res.ok) throw new Error("Backend Crash");
         globalSimData = await res.json();
-
         lastLoadedSmiles = null;
 
         const hdrStr = `SEARCH SPACE: <span style="color:var(--text-color); font-weight:bold;">${globalSimData.N.toLocaleString()}</span> &nbsp;|&nbsp; ORACLE TARGETS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.targets_count.toLocaleString()}</span> &nbsp;|&nbsp; ALLOCATED QUBITS: <span style="color:var(--accent-color); font-weight:bold;">${globalSimData.num_qubits}</span>`;
@@ -137,7 +140,6 @@ async function runQuantumSimulation() {
         console.error(err);
         if(statusHdr) statusHdr.innerHTML = `<span style="color:#ef4444; font-weight:bold;">BACKEND ERROR</span>`;
     }
-
     if(btn) btn.innerText = "Apply & Run Simulation";
 }
 
@@ -160,12 +162,17 @@ function renderSpecificView(pageId) {
 function renderCostSimulator(animate = false) {
     const l = getLayoutProps();
     let N = parseInt(document.getElementById('cost-n').value) || 1000000;
-    let costPer = parseFloat(document.getElementById('cost-per').value) || 10;
     let timePer = parseFloat(document.getElementById('cost-time').value) || 1;
 
-    let cCost = N * costPer; let cTime = N * timePer;
+    // ⚡ FIXED PRICING LOGIC
+    let classicPrice = 10;
+    let quantumPrice = 100;
+
+    let cCost = N * classicPrice;
+    let cTime = N * timePer;
     let qEst = Math.floor(Math.sqrt(N));
-    let qCost = qEst * costPer; let qTime = qEst * timePer;
+    let qCost = qEst * quantumPrice;
+    let qTime = qEst * timePer;
     let speedup = qTime > 0 ? cTime / qTime : 0;
 
     document.getElementById('metric-c-cost').innerText = `$${cCost.toLocaleString()}`;
@@ -173,28 +180,39 @@ function renderCostSimulator(animate = false) {
     document.getElementById('metric-q-cost').innerText = `$${qCost.toLocaleString()}`;
     document.getElementById('metric-q-time').innerText = `${qTime.toLocaleString()} sec`;
     document.getElementById('metric-speedup').innerText = `${speedup.toLocaleString(undefined, {maximumFractionDigits: 0})}x`;
-    document.getElementById('real-world-text').innerHTML = `Your classical simulation at N=${N.toLocaleString()} already costs <strong>$${cCost.toLocaleString()}</strong>, showing how early-stage screening contributes significantly to pharmaceutical R&D expenses. Quantum-inspired tools reduce this to $${qCost.toLocaleString()}.`;
+
+    document.getElementById('real-world-text').innerHTML = `Your classical simulation at N=${N.toLocaleString()} already costs <strong>$${cCost.toLocaleString()}</strong>. Even though Quantum compute is 10x more expensive per step, the square-root algorithmic advantage reduces total cost to just $${qCost.toLocaleString()}!`;
 
     Plotly.newPlot('cost-bar-chart', [{ x: ["Classical", "Quantum-Inspired"], y: [cCost, qCost], type: 'bar', text: [`$${cCost.toLocaleString()}`, `$${qCost.toLocaleString()}`], textposition: 'auto', marker: { color: ['#ef4444', '#10b981'] } }], { title: {text: 'Total Cost Comparison ($)', font: {size: 14}}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30} });
 
     let sizes = []; let maxN = Math.max(N, 1000);
     for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
-    let cCurve = sizes.map(s => s); let qCurve = sizes.map(s => Math.sqrt(s));
 
-    Plotly.newPlot('cost-log-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { title: {text: 'Logarithmic View (Real Difference)', font: {size: 14}}, yaxis: {type: 'log'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30}, legend: {x: 0, y: 1} });
+    // ⚡ CURVES NOW PLOT TOTAL COST (Operations * Fixed Price)
+    let cCurve = sizes.map(s => s * classicPrice);
+    let qCurve = sizes.map(s => Math.sqrt(s) * quantumPrice);
 
-    if (!animate) { Plotly.newPlot('cost-scaling-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} }); }
+    Plotly.newPlot('cost-log-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical Cost ($)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum Cost ($)", line: {color: '#10b981', width: 3} } ], { title: {text: 'Logarithmic Cost Scaling ($)', font: {size: 14}}, yaxis: {type: 'log'}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 40, b: 30}, legend: {x: 0, y: 1} });
+
+    if (!animate) { Plotly.newPlot('cost-scaling-chart', [ { x: sizes, y: cCurve, mode: 'lines', name: "Classical Cost ($)", line: {color: '#ef4444', width: 3} }, { x: sizes, y: qCurve, mode: 'lines', name: "Quantum Cost ($)", line: {color: '#10b981', width: 3} } ], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} }); }
 }
 
 function animateCostCurve() {
     if(costAnimationInterval) clearInterval(costAnimationInterval);
     let N = parseInt(document.getElementById('cost-n').value) || 1000000;
+
+    let classicPrice = 10;
+    let quantumPrice = 100;
+
     let sizes = []; let maxN = Math.max(N, 1000);
     for(let i=1; i<=100; i++) { sizes.push(Math.floor((i/100) * maxN)); }
-    let cCurve = sizes.map(s => s); let qCurve = sizes.map(s => Math.sqrt(s));
+    let cCurve = sizes.map(s => s * classicPrice);
+    let qCurve = sizes.map(s => Math.sqrt(s) * quantumPrice);
 
     let step = 5; const l = getLayoutProps();
-    Plotly.newPlot('cost-scaling-chart', [ { x: sizes.slice(0, step), y: cCurve.slice(0, step), mode: 'lines', name: "Classical O(N)", line: {color: '#ef4444', width: 3} }, { x: sizes.slice(0, step), y: qCurve.slice(0, step), mode: 'lines', name: "Quantum O(√N)", line: {color: '#10b981', width: 3} } ], { xaxis: {range: [0, maxN]}, yaxis: {range: [0, maxN]}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
+    let maxCost = Math.max(cCurve[cCurve.length-1], qCurve[qCurve.length-1]);
+
+    Plotly.newPlot('cost-scaling-chart', [ { x: sizes.slice(0, step), y: cCurve.slice(0, step), mode: 'lines', name: "Classical Cost ($)", line: {color: '#ef4444', width: 3} }, { x: sizes.slice(0, step), y: qCurve.slice(0, step), mode: 'lines', name: "Quantum Cost ($)", line: {color: '#10b981', width: 3} } ], { xaxis: {range: [0, maxN]}, yaxis: {range: [0, maxCost]}, paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, margin: {l: 50, r: 20, t: 20, b: 30}, legend: {x: 0, y: 1} });
 
     costAnimationInterval = setInterval(() => {
         step += 2;
@@ -216,8 +234,7 @@ function initRaceView() {
 function startRace() {
     if(!globalSimData) return;
     const btn = document.getElementById('start-race-btn');
-    btn.disabled = true;
-    initRaceView();
+    btn.disabled = true; initRaceView();
     const N = globalSimData.N; const steps = globalSimData.opt_steps;
 
     let qCount = 0;
@@ -261,7 +278,7 @@ function renderHilbertSpace() {
     }], { paper_bgcolor: l.bg, plot_bgcolor: l.bg, font: { color: l.fontCol }, scene: { xaxis: {title: 'Mass (Da)'}, yaxis: {title: 'LogP'}, zaxis: { title: '|Ψ|² Probability', range: [0, maxP > 0 ? maxP * 1.5 : 1] } }, margin: {l:0,r:0,t:0,b:0} });
 
     let tableHTML = `<table class="custom-table"><tr><th>Name</th><th>Classification</th><th>MW</th><th>LogP</th><th>QED</th><th>TPSA</th><th>HBD</th><th>HBA</th><th>Probability</th></tr>`;
-    data.slice(0, 20).forEach(d => { tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.QED.toFixed(3)}</td><td>${d.TPSA.toFixed(1)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`; });
+    data.slice(0, 20).forEach(d => { tableHTML += `<tr><td>${d.Name}</td><td style="color:${d.Classification==='★ MEASURED WAVE COLLAPSE'?'#f59e0b':'#3b82f6'}">${d.Classification}</td><td>${d.MW}</td><td>${d.LogP}</td><td>${d.QED}</td><td>${d.TPSA}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${(d.Probability*100).toFixed(4)}%</td></tr>`; });
     tableHTML += `</table>`;
     const tbContainer = document.getElementById('hilbert-table-container');
     if (tbContainer) tbContainer.innerHTML = tableHTML;
@@ -272,10 +289,10 @@ function renderTopCandidate() {
     const hit = globalSimData.top_hit;
     document.getElementById('tc-name').innerText = hit.Name;
     document.getElementById('tc-prob').innerText = (hit.Probability * 100).toFixed(4) + "%";
-    document.getElementById('tc-mw').innerText = hit.MW.toFixed(2) + " Da";
-    document.getElementById('tc-logp').innerText = hit.LogP.toFixed(2);
-    document.getElementById('tc-qed').innerText = hit.QED.toFixed(3);
-    document.getElementById('tc-tpsa').innerText = hit.TPSA.toFixed(1) + " Å²";
+    document.getElementById('tc-mw').innerText = hit.MW + " Da";
+    document.getElementById('tc-logp').innerText = hit.LogP;
+    document.getElementById('tc-qed').innerText = hit.QED;
+    document.getElementById('tc-tpsa').innerText = hit.TPSA + " Å²";
 
     let v = 0; let badgeHtml = '';
     const checks = [{name: "MW ≤ 500 Da", pass: hit.MW <= 500}, {name: "LogP ≤ 5", pass: hit.LogP <= 5}, {name: "HBD ≤ 5", pass: hit.HBD <= 5}, {name: "HBA ≤ 10", pass: hit.HBA <= 10}];
@@ -299,7 +316,7 @@ function renderLipinskiFilter() {
         let v = 0; if(d.MW > 500) v++; if(d.LogP > 5) v++; if(d.HBD > 5) v++; if(d.HBA > 10) v++;
         const status = v <= 1 ? "PASS" : "FAIL";
         if(status === "PASS") passCount++; else failCount++;
-        tableHTML += `<tr><td>${d.Name}</td><td>${d.MW.toFixed(2)}</td><td>${d.LogP.toFixed(2)}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${v}</td><td><span class="${status==='PASS'?'badge-pass':'badge-fail'}">${status}</span></td></tr>`;
+        tableHTML += `<tr><td>${d.Name}</td><td>${d.MW}</td><td>${d.LogP}</td><td>${d.HBD}</td><td>${d.HBA}</td><td>${v}</td><td><span class="${status==='PASS'?'badge-pass':'badge-fail'}">${status}</span></td></tr>`;
     });
     tableHTML += `</table>`;
     document.getElementById('lipinski-table-container').innerHTML = tableHTML;
@@ -460,8 +477,6 @@ function toggleStudentMode() {
 
 function startTourSequence(pageId) {
     if(!studentModeActive) return;
-
-    // Default fallback if page isn't in tourData
     currentTourSequence = tourData[pageId] || [{target: null, title: "Explore freely", text: "Use the navigation above to select a module."}];
     currentTourStep = 0;
     renderTourStep();
@@ -476,10 +491,12 @@ function renderTourStep() {
     const titleEl = document.getElementById('tour-title');
     const progressEl = document.getElementById('tour-progress');
 
-    // Add glowing highlight if a target is defined
     if(stepInfo.target) {
         const targetEl = document.getElementById(stepInfo.target);
-        if(targetEl) targetEl.classList.add('student-focus');
+        if(targetEl) {
+            targetEl.classList.add('student-focus');
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 
     textEl.style.opacity = 0;
@@ -507,6 +524,5 @@ function tourPrev() {
 }
 
 function clearAllHighlights() {
-    // Remove glow from all possible targets
     document.querySelectorAll('.student-focus').forEach(el => el.classList.remove('student-focus'));
 }

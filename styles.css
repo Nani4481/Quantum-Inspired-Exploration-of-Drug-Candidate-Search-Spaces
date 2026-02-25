@@ -33,9 +33,6 @@ body::before {
 h1, h2, h3, h4, h5, h6 { font-weight: 800; letter-spacing: -0.03em; color: var(--text-color); margin-top: 0; }
 p, label { color: var(--subtext-color); line-height: 1.6; }
 
-/* ========================================= */
-/* ULTRA-MODERN PROFESSIONAL NAVBAR          */
-/* ========================================= */
 .nav-container {
     background: var(--nav-bg);
     backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
@@ -85,9 +82,6 @@ p, label { color: var(--subtext-color); line-height: 1.6; }
 }
 .nav-btn-icon:hover { transform: rotate(15deg) scale(1.1); border-color: var(--accent-color); color: var(--accent-color); }
 
-/* ========================================= */
-/* CORE STRUCTURE & CARDS                    */
-/* ========================================= */
 .block-container { padding-top: 6rem; padding-bottom: 2rem; max-width: 1400px; margin: 0 auto; padding-left: 2rem; padding-right: 2rem; }
 .page-section { display: none; animation: fadeIn 0.4s ease; } .page-section.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

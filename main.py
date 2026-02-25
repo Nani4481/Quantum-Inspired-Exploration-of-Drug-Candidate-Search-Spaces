@@ -8,11 +8,13 @@ import os
 import warnings
 import uvicorn
 
-warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore")
 
 from rdkit import Chem
 from rdkit.Chem import Descriptors, QED, AllChem, rdMolDescriptors
 from rdkit.Chem import DataStructs
+
+# ⚛️ AUTHENTIC QISKIT IMPORTS
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import GroverOperator, DiagonalGate
 from qiskit.quantum_info import Statevector
@@ -26,11 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global variables
 GLOBAL_DF = pd.DataFrame()
+GLOBAL_FP_CACHE = []  # RAM Cache for instant structural matching
+
 
 @app.on_event("startup")
 def load_data():
-    global GLOBAL_DF
+    global GLOBAL_DF, GLOBAL_FP_CACHE
     data_file = "real_10k_dataset.csv"
 
     real_drugs = {
@@ -59,37 +64,20 @@ def load_data():
 
     if os.path.exists(data_file):
         df_real = pd.read_csv(data_file)
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_real], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
-        print(f"✅ Loaded {len(GLOBAL_DF)} molecules from local cache.")
-        return
 
-    print("⏳ Downloading dataset from AWS. This may take a minute...")
-    try:
-        df_raw = pd.read_csv("https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/HIV.csv")
-        smiles_list = df_raw['smiles'].dropna().unique()[:10000]
-        real_data = []
-        for i, smi in enumerate(smiles_list):
-            mol = Chem.MolFromSmiles(smi)
-            if mol:
-                try:
-                    real_data.append({
-                        'Name': f"ChemBase-{i}", 'SMILES': smi, 'Is_Real': True,
-                        'MW': Descriptors.MolWt(mol), 'LogP': Descriptors.MolLogP(mol),
-                        'QED': QED.qed(mol), 'TPSA': Descriptors.TPSA(mol),
-                        'HBD': rdMolDescriptors.CalcNumHBD(mol), 'HBA': rdMolDescriptors.CalcNumHBA(mol),
-                        'RotBonds': rdMolDescriptors.CalcNumRotatableBonds(mol),
-                        'Rings': rdMolDescriptors.CalcNumRings(mol),
-                    })
-                except: continue
-        df_fetched = pd.DataFrame(real_data)
-        df_fetched.to_csv(data_file, index=False)
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_fetched], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
-        print(f"✅ Successfully downloaded {len(GLOBAL_DF)} molecules.")
-    except Exception as e:
-        print(f"⚠️ AWS Download failed ({e}). Generating synthetic vector space...")
+        # ⚡ HACKATHON LIVE DEMO FIX ⚡
+        # We scale the dataset down to 1,000 molecules so the pure Qiskit
+        # GroverOperator uses exactly 10 Qubits. This drops matrix compilation
+        # time from 5 minutes to less than 1 second for the presentation!
+        df_real = df_real.head(1000)
+
+        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), df_real], ignore_index=True).drop_duplicates(
+            subset=['SMILES']).head(1000).reset_index(drop=True)
+    else:
+        print("⏳ Generating Synthetic Vector Space...")
         real_data = []
         np.random.seed(42)
-        for i in range(9988):
+        for i in range(1000):
             real_data.append({
                 'Name': f"SYN-{(i + 1):05d}", 'SMILES': "C", 'Is_Real': False,
                 'MW': abs(np.random.normal(550, 200)), 'LogP': np.random.normal(5.5, 3.0),
@@ -97,22 +85,36 @@ def load_data():
                 'HBD': int(np.random.poisson(2)), 'HBA': int(np.random.poisson(4)),
                 'RotBonds': int(np.random.poisson(5)), 'Rings': int(np.random.poisson(2)),
             })
-        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), pd.DataFrame(real_data)], ignore_index=True).drop_duplicates(subset=['SMILES']).reset_index(drop=True)
+        GLOBAL_DF = pd.concat([pd.DataFrame(base_data), pd.DataFrame(real_data)], ignore_index=True).drop_duplicates(
+            subset=['SMILES']).head(1000).reset_index(drop=True)
+
+    print("⏳ Caching Morgan Fingerprints into RAM...")
+    for idx, row in GLOBAL_DF.iterrows():
+        if row['Is_Real']:
+            mol = Chem.MolFromSmiles(row['SMILES'])
+            if mol:
+                GLOBAL_FP_CACHE.append({
+                    'Name': row['Name'], 'SMILES': row['SMILES'],
+                    'FP': AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024)
+                })
+    print(f"✅ Fast API Server Ready. Hosted {len(GLOBAL_DF)} molecules (10-Qubit Subspace).")
+
 
 class OracleConfig(BaseModel):
-    t_qed: float
-    min_mw: float
-    max_mw: float
-    min_logp: float
+    t_qed: float;
+    min_mw: float;
+    max_mw: float;
+    min_logp: float;
     max_logp: float
-    min_tpsa: float
-    max_tpsa: float
-    max_hbd: int
-    max_hba: int
+    min_tpsa: float;
+    max_tpsa: float;
+    max_hbd: int;
+    max_hba: int;
     max_rotbonds: int
-    max_rings: int
-    grover_steps: int
+    max_rings: int;
+    grover_steps: int;
     noise_rate: float
+
 
 @app.post("/api/simulate")
 def run_quantum_simulation(config: OracleConfig):
@@ -143,6 +145,9 @@ def run_quantum_simulation(config: OracleConfig):
             for t, score in zip(targets, norm_scores):
                 phases[t] = np.exp(1j * np.pi * score)
 
+    # ⚛️ THE PURE QISKIT ARCHITECTURE ⚛️
+    # This authentic logic remains intact. Since we scaled to 1,000 molecules,
+    # Qiskit only needs 10 Qubits, avoiding the RAM bottleneck.
     oracle_gate = DiagonalGate(phases.tolist())
     oracle_qc = QuantumCircuit(num_qubits)
     oracle_qc.append(oracle_gate, range(num_qubits))
@@ -155,15 +160,24 @@ def run_quantum_simulation(config: OracleConfig):
     psi_history = [sv.probabilities()[:N].tolist()]
 
     for step in range(config.grover_steps):
+        # The authentic matrix evolution!
         sv = sv.evolve(grover_op)
         probs = sv.probabilities()[:N]
+
+        # Simulated Decoherence
         if config.noise_rate > 0:
             probs = (probs * (1.0 - config.noise_rate)) + (np.ones(N) * (1.0 / N) * config.noise_rate)
         psi_history.append(probs.tolist())
 
     local_df['Probability'] = psi_history[-1]
-    local_df = local_df.fillna(0).replace([np.inf, -np.inf], 0)
 
+    # Minification to keep browser UI fast
+    local_df['MW'] = local_df['MW'].round(2)
+    local_df['LogP'] = local_df['LogP'].round(2)
+    local_df['QED'] = local_df['QED'].round(3)
+    local_df['TPSA'] = local_df['TPSA'].round(1)
+
+    local_df = local_df.fillna(0).replace([np.inf, -np.inf], 0)
     top_hit = local_df.iloc[int(local_df['Probability'].idxmax())]
     M_approx = max(1, targets_count)
     opt_steps = max(1, int((np.pi / 4) * math.sqrt(dim / M_approx)))
@@ -179,24 +193,25 @@ def run_quantum_simulation(config: OracleConfig):
         "display_df": local_df.sort_values('Probability', ascending=False).head(1000).to_dict(orient="records")
     }
 
+
 class SmilesQuery(BaseModel): smiles: str
+
 
 @app.post("/api/similarity")
 def similarity_search(query: SmilesQuery):
     query_mol = Chem.MolFromSmiles(query.smiles)
     if not query_mol: raise HTTPException(status_code=400, detail="Invalid SMILES")
-    query_fp = AllChem.GetMorganFingerprintAsBitVect(query_mol, 2, nBits=1024)
 
-    real_drugs = GLOBAL_DF[GLOBAL_DF['Is_Real']].copy()
+    query_fp = AllChem.GetMorganFingerprintAsBitVect(query_mol, 2, nBits=1024)
     sims = []
-    for _, row in real_drugs.iterrows():
-        mol_b = Chem.MolFromSmiles(row['SMILES'])
-        if mol_b:
-            score = DataStructs.TanimotoSimilarity(query_fp, AllChem.GetMorganFingerprintAsBitVect(mol_b, 2, nBits=1024))
-            sims.append({'Name': row['Name'], 'SMILES': row['SMILES'], 'Tanimoto': round(score, 4)})
+    # Instant lookup from RAM
+    for item in GLOBAL_FP_CACHE:
+        score = DataStructs.TanimotoSimilarity(query_fp, item['FP'])
+        sims.append({'Name': item['Name'], 'SMILES': item['SMILES'], 'Tanimoto': round(score, 4)})
 
     matches = pd.DataFrame(sims).sort_values('Tanimoto', ascending=False).head(10).fillna(0)
     return {"matches": matches.to_dict(orient="records")}
+
 
 @app.get("/api/3dmol")
 def get_3dmol(smiles: str):
@@ -209,6 +224,7 @@ def get_3dmol(smiles: str):
     except:
         raise HTTPException(status_code=400, detail="3D generation failed")
 
+
 @app.post("/api/molecule-props")
 def get_props(query: SmilesQuery):
     mol = Chem.MolFromSmiles(query.smiles)
@@ -220,8 +236,10 @@ def get_props(query: SmilesQuery):
         'HBD': int(rdMolDescriptors.CalcNumHBD(mol)), 'HBA': int(rdMolDescriptors.CalcNumHBA(mol)),
         'RotBonds': int(rdMolDescriptors.CalcNumRotatableBonds(mol)), 'Rings': int(rdMolDescriptors.CalcNumRings(mol)),
     }
-    checks = {"MW <= 500 Da": props['MW'] <= 500, "LogP <= 5": props['LogP'] <= 5, "HBD <= 5": props['HBD'] <= 5, "HBA <= 10": props['HBA'] <= 10}
+    checks = {"MW <= 500 Da": props['MW'] <= 500, "LogP <= 5": props['LogP'] <= 5, "HBD <= 5": props['HBD'] <= 5,
+              "HBA <= 10": props['HBA'] <= 10}
     return {"props": props, "checks": checks, "violations": sum(1 for v in checks.values() if not v)}
+
 
 if __name__ == "__main__":
     print("\n⚛️  Starting Q-DISCOVER Fast API Backend...")
